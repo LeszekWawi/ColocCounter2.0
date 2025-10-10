@@ -8,9 +8,6 @@ Version: 1.0.1 - Fixed
 
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox, scrolledtext
-from matplotlib.figure import Figure
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
-
 import numpy as np
 from scipy import ndimage, stats
 from scipy.ndimage import (
@@ -6882,9 +6879,9 @@ The analysis calculates:
         gfp_img = two_channel_img[:, :, 0]
         mcherry_img = two_channel_img[:, :, 1]
         
-        fig = Figure(figsize=(14, 4))
+        fig = Figure(figsize=(14, 8))
         fig.patch.set_facecolor('white')
-        fig.subplots_adjust(left=0.05, right=0.95, wspace=0.3)
+        fig.subplots_adjust(left=0.05, right=0.95, top=0.92, bottom=0.08, wspace=0.3, hspace=0.3)
         
         # Calculate Otsu thresholds for whole image
         gfp_thresh = threshold_otsu(gfp_img) if gfp_img.max() > 0 else 0
@@ -6970,14 +6967,10 @@ The analysis calculates:
         
         fig.suptitle('🟡 Intensity-Based Colocalization Analysis (Otsu Thresholding)',
                     fontsize=14, fontweight='bold')
-        
+
         canvas = FigureCanvasTkAgg(fig, master=self.figure_frame)
         canvas.draw()
         canvas.get_tk_widget().pack(fill='both', expand=True)
-        
-        toolbar = NavigationToolbar2Tk(canvas, self.figure_frame)
-        toolbar.update()
-        toolbar.pack(side=tk.BOTTOM, fill=tk.X)
 
 
     def show_wholecell_icq_colocalization(self, result):
@@ -7570,12 +7563,16 @@ The analysis calculates:
         global_icq = comprehensive_data['global_analysis']['icq_global']
 
         # Create figure with 3 panels: 2 images + 1 text
-        fig = Figure(figsize=(12, 6))
+        from matplotlib.gridspec import GridSpec
+        fig = Figure(figsize=(16, 10))
         fig.patch.set_facecolor('white')
-        # fig.subplots_adjust(left=0.05, right=0.95, wspace=0.3)
+        fig.subplots_adjust(left=0.05, right=0.95, top=0.92, bottom=0.08, wspace=0.3, hspace=0.4)
+
+        # Use GridSpec for better proportion control
+        gs = GridSpec(1, 4, figure=fig, width_ratios=[2, 2, 2, 1], wspace=0.3)
 
         # Panel 1: Detected Granules
-        ax1 = fig.add_subplot(1, 3, 1)
+        ax1 = fig.add_subplot(gs[0, 0])
         rgb_granules = np.zeros((*gfp_img.shape, 3), dtype=np.float32)
         # Base image (dim)
         rgb_granules[:, :, 0] = mcherry_img / mcherry_img.max() * 0.3 if mcherry_img.max() > 0 else 0
@@ -7586,12 +7583,12 @@ The analysis calculates:
 
         ax1.imshow(rgb_granules, #interpolation='nearest'
             )
-        #ax1.set_aspect('equal')
+        ax1.set_aspect('equal')
         ax1.set_title('Detected Granules\n(Green: GFP, Red: mCherry)', fontweight='bold', fontsize=12)
         ax1.axis('off')
 
         # Panel 2: Granule Level ICQ
-        ax2 = fig.add_subplot(1, 3, 2)
+        ax2 = fig.add_subplot(gs[0, 1])
         rgb_icq = np.zeros((*gfp_img.shape, 3), dtype=np.float32)
         # Show granule regions as background
         rgb_icq[any_granule_mask, 0] = 0.2
@@ -7604,13 +7601,17 @@ The analysis calculates:
 
         ax2.imshow(rgb_icq, #interpolation='nearest'
                    )
-        # ax2.set_aspect('equal')
+        ax2.set_aspect('equal')
         ax2.set_title('Granule Level ICQ\n(Blue: Positive, Orange: Negative)', fontweight='bold', fontsize=12)
         ax2.axis('off')
 
-        # Panel 3: Statistics Text
-        ax3 = fig.add_subplot(1, 3, 3)
+        # Panel 3: Empty placeholder (for GridSpec consistency)
+        ax3 = fig.add_subplot(gs[0, 2])
         ax3.axis('off')
+
+        # Panel 4: Statistics Text
+        ax4 = fig.add_subplot(gs[0, 3])
+        ax4.axis('off')
 
         # Calculate percentages
         positive_pct = (granule_positive_pixels/total_granule_pixels*100) if total_granule_pixels > 0 else 0
@@ -7653,8 +7654,8 @@ The analysis calculates:
 • ICQ < 0: Mutual exclusion
 • Higher values = stronger colocalization"""
 
-        ax3.text(0.05, 0.95, stats_text, transform=ax3.transAxes,
-                fontsize=10, verticalalignment='top', family='monospace',
+        ax4.text(0.05, 0.95, stats_text, transform=ax4.transAxes,
+                fontsize=8, verticalalignment='top', family='monospace',
                 bbox=dict(boxstyle="round,pad=0.5", facecolor='lightblue', alpha=0.8))
 
         fig.suptitle('Granule-Level ICQ Analysis', fontsize=14, fontweight='bold')
@@ -7662,10 +7663,6 @@ The analysis calculates:
         canvas = FigureCanvasTkAgg(fig, master=self.figure_frame)
         canvas.draw()
         canvas.get_tk_widget().pack(fill='both', expand=True)
-
-        toolbar = NavigationToolbar2Tk(canvas, self.figure_frame)
-        toolbar.update()
-        toolbar.pack(side=tk.BOTTOM, fill=tk.X)
         
 
     def show_granule_overlap_colocalization(self, result):
@@ -8887,36 +8884,44 @@ The analysis calculates:
         """Handle granule detection mode change"""
         mode = self.granule_detection_mode.get()
         self.log(f"Display mode changed to: {mode}")
-        
+
         if hasattr(self, 'results') and self.results:
-            has_dual_data = any(hasattr(r, 'dual_analysis_data') and r.dual_analysis_data 
-                                for r in self.results)
-            
-            if has_dual_data:
-                response = messagebox.askyesno("Switch Display Mode", 
-                                                f"Switch to {mode.upper()} display mode?\n"
-                                                "This will show results for the selected granule type "
-                                                "without reprocessing images.")
-                if response:
-                    self.switch_display_mode()
-            else:
-                response = messagebox.askyesno("Reprocess Required", 
-                                                f"Current results don't support mode switching.\n"
-                                                "Reprocess all images with dual granule detection?")
-                if response:
-                    self.reprocess_with_dual_detection()
+            has_switchable_data = any(
+                (hasattr(r, 'dual_analysis_data') and r.dual_analysis_data) or
+                (hasattr(r, 'comprehensive_data') and r.comprehensive_data)
+                for r in self.results
+            )
+
+            if has_switchable_data:
+                self.switch_display_mode()
+                self.log(f"Switched to {mode.upper()} display mode")
 
     def switch_display_mode(self):
         """Switch display mode without reprocessing images"""
         if not self.results:
             messagebox.showinfo("Info", "No results available to switch modes")
             return
-            
+
         new_mode = self.granule_detection_mode.get()
         switched_count = 0
-        
+
         for result in self.results:
-            if hasattr(result, 'dual_analysis_data') and result.dual_analysis_data:
+            # Try comprehensive_data first
+            if hasattr(result, 'comprehensive_data') and result.comprehensive_data:
+                try:
+                    comp_data = result.comprehensive_data
+                    result.parameters['display_mode'] = new_mode
+
+                    if 'analysis_metadata' in comp_data:
+                        comp_data['analysis_metadata']['display_mode'] = new_mode
+
+                    switched_count += 1
+                except Exception as e:
+                    print(f"Error switching comprehensive mode for {result.experiment_id}: {str(e)}")
+                    continue
+
+            # Fall back to dual_analysis_data if no comprehensive_data
+            elif hasattr(result, 'dual_analysis_data') and result.dual_analysis_data:
                 try:
                     if new_mode == "gfp":
                         active_analysis = result.dual_analysis_data['gfp_analysis']
@@ -8956,10 +8961,8 @@ The analysis calculates:
         if switched_count > 0:
             self.update_results_display()
             self.log(f"Switched {switched_count} results to {new_mode.upper()} display mode")
-            messagebox.showinfo("Success", f"Switched {switched_count} results to {new_mode.upper()} mode")
         else:
-            self.log("No results could be switched - they may be from older analysis")
-            messagebox.showwarning("Warning", "No results could be switched. Results may be from older analysis without dual detection.")
+            self.log(f"No results to switch - mode set to {new_mode.upper()} for future processing")
 
     def reprocess_with_dual_detection(self):
         """Reprocess current images with dual granule detection"""
