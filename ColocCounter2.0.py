@@ -4280,388 +4280,147 @@ The analysis calculates:
 # Replace the display_batch_results method in ColocalizationGUI class:
 
     def show_batch_visualization(self):
-        """Show clean batch visualization"""
+        """Display 6 parameter plots in 2x3 grid: Recruitment, Enrichment, CCS, Jaccard, M1, M2"""
         for widget in self.figure_frame.winfo_children():
             widget.destroy()
 
         if not self.results:
-            placeholder_frame = ttk.Frame(self.figure_frame)
-            placeholder_frame.pack(fill='both', expand=True)
-            
-            placeholder_label = ttk.Label(placeholder_frame, 
-                                        text="📊 No Results Available\n\nProcess some images first to see batch analysis.",
-                                        font=('TkDefaultFont', 14), 
-                                        foreground='gray',
-                                        justify='center')
-            placeholder_label.pack(expand=True)
+            self.show_error_display("No results to display")
             return
 
-        fig = Figure(figsize=(15, 12), dpi=100)
-        fig.patch.set_facecolor('white')
-        fig.subplots_adjust(left=0.08, right=0.95, top=0.92, bottom=0.12, wspace=0.4, hspace=0.5)
+        # Collect data from all results
+        data = {
+            'images': [],
+            'recruitment': [],
+            'enrichment': [],
+            'ccs': [],
+            'jaccard': [],
+            'm1': [],
+            'm2': []
+        }
 
-        icq_values = [r.statistics['icq']['mean'] for r in self.results]
-        translocation_values = [r.statistics['translocation']['mean'] for r in self.results]
-        ccs_values = [r.statistics['ccs']['mean'] for r in self.results]
-        experiment_names = [r.experiment_id for r in self.results]
+        detection_mode = self.granule_detection_mode.get()  # "gfp" or "cherry"
 
-        # Extract enrichment and recruitment metrics
-        enrichment_gfp_values = []
-        enrichment_mcherry_values = []
-        recruitment_to_gfp_values = []
-        recruitment_to_mcherry_values = []
-        
         for result in self.results:
-            # Try to get enrichment metrics from comprehensive data
-            comprehensive = getattr(result, 'comprehensive_data', {})
-            structure_analysis = comprehensive.get('structure_analysis', {})
-            granule_metrics = structure_analysis.get('comprehensive_granule_metrics', {})
-            
-            enrichment_gfp_values.append(granule_metrics.get('gfp_enrichment_in_mcherry', 1.0))
-            enrichment_mcherry_values.append(granule_metrics.get('mcherry_enrichment_in_gfp', 1.0))
-            recruitment_to_gfp_values.append(granule_metrics.get('recruitment_icq_to_gfp', 0.0))
-            recruitment_to_mcherry_values.append(granule_metrics.get('recruitment_icq_to_mcherry', 0.0))
+            if not hasattr(result, 'comprehensive_data') or not result.comprehensive_data:
+                continue
 
-        icq_mean = np.mean(icq_values)
-        icq_std = np.std(icq_values)
-        translocation_mean = np.mean(translocation_values)
-        translocation_std = np.std(translocation_values)
-        ccs_mean = np.mean(ccs_values)
-        ccs_std = np.std(ccs_values)
+            comp_data = result.comprehensive_data
+            image_name = result.experiment_id
 
-        # Enrichment and recruitment statistics
-        enrichment_gfp_mean = np.mean(enrichment_gfp_values)
-        enrichment_gfp_std = np.std(enrichment_gfp_values)
-        enrichment_mcherry_mean = np.mean(enrichment_mcherry_values)
-        enrichment_mcherry_std = np.std(enrichment_mcherry_values)
-        recruitment_to_gfp_mean = np.mean(recruitment_to_gfp_values)
-        recruitment_to_gfp_std = np.std(recruitment_to_gfp_values)
-        recruitment_to_mcherry_mean = np.mean(recruitment_to_mcherry_values)
-        recruitment_to_mcherry_std = np.std(recruitment_to_mcherry_values)
+            # Extract metrics from structure_analysis
+            if 'structure_analysis' in comp_data:
+                struct = comp_data['structure_analysis']
 
-        colors = ['#2E86AB', '#A23B72', '#F18F01', '#9B59B6', '#E74C3C']
-        
-        current_mode = self.granule_detection_mode.get()
-        mode_title = f"({current_mode.upper()} Granule Analysis)"
+                # Recruitment - directional based on mode
+                if 'bidirectional_ccs' in struct:
+                    bidir = struct['bidirectional_ccs']
+                    if detection_mode == "gfp":
+                        recruitment = bidir.get('mcherry_to_gfp_ccs', 0)
+                    else:
+                        recruitment = bidir.get('gfp_to_mcherry_ccs', 0)
+                else:
+                    recruitment = 0
 
-        ax1 = fig.add_subplot(2, 3, 1)
-        bars1 = ax1.bar(range(len(icq_values)), icq_values, width=0.6, 
-                    color=colors[0], alpha=0.8, edgecolor='white', linewidth=0.5)
-        ax1.set_title(f'ICQ Values Across Images {mode_title}', fontweight='bold', fontsize=12, pad=15)
-        ax1.set_xlabel('Image Index', fontweight='bold')
-        ax1.set_ylabel('ICQ Score', fontweight='bold')
-        ax1.set_xticks(range(0, len(experiment_names), max(1, len(experiment_names)//10)))
-        ax1.grid(True, alpha=0.3)
-        ax1.axhline(y=icq_mean, color='red', linestyle='--', alpha=0.7, linewidth=2, label=f'Mean: {icq_mean:.3f}')
-        ax1.legend(loc='upper right', fontsize=8)
+                # Enrichment - directional based on mode
+                if 'enrichment_analysis' in struct:
+                    enrich = struct['enrichment_analysis']
+                    if detection_mode == "gfp":
+                        enrichment = enrich.get('mcherry_enrichment_in_gfp', 1)
+                    else:
+                        enrichment = enrich.get('gfp_enrichment_in_mcherry', 1)
+                else:
+                    enrichment = 1
 
-        ax2 = fig.add_subplot(2, 3, 2)
-        bars2 = ax2.bar(range(len(translocation_values)), translocation_values, width=0.6,
-                    color=colors[1], alpha=0.8, edgecolor='white', linewidth=0.5)
-        ax2.set_title(f'Translocation Efficiency {mode_title}', fontweight='bold', fontsize=12, pad=15)
-        ax2.set_xlabel('Image Index', fontweight='bold')
-        ax2.set_ylabel('Translocation Efficiency', fontweight='bold')
-        ax2.set_xticks(range(0, len(experiment_names), max(1, len(experiment_names)//10)))
-        ax2.grid(True, alpha=0.3)
-        ax2.axhline(y=translocation_mean, color='red', linestyle='--', alpha=0.7, linewidth=2, label=f'Mean: {translocation_mean:.3f}')
-        ax2.legend(loc='upper right', fontsize=8)
+                # CCS - average or dominant
+                if 'ccs_colocalization' in struct:
+                    ccs = struct['ccs_colocalization'].get('average_ccs', 0)
+                else:
+                    ccs = 0
 
-        ax3 = fig.add_subplot(2, 3, 3)
-        bars3 = ax3.bar(range(len(ccs_values)), ccs_values, width=0.6,
-                    color=colors[2], alpha=0.8, edgecolor='white', linewidth=0.5)
-        ax3.set_title(f'CCS Scores {mode_title}', fontweight='bold', fontsize=12, pad=15)
-        ax3.set_xlabel('Image Index', fontweight='bold')
-        ax3.set_ylabel('CCS Score', fontweight='bold')
-        ax3.set_xticks(range(0, len(experiment_names), max(1, len(experiment_names)//10)))
-        ax3.grid(True, alpha=0.3)
-        ax3.axhline(y=ccs_mean, color='red', linestyle='--', alpha=0.7, linewidth=2, label=f'Mean: {ccs_mean:.3f}')
-        ax3.legend(loc='upper right', fontsize=8)
+                # Jaccard
+                if 'jaccard_index' in struct:
+                    jaccard = struct['jaccard_index']
+                else:
+                    jaccard = 0
 
-        ax4 = fig.add_subplot(2, 3, 4)
-        parameters = ['ICQ', 'Translocation', 'CCS']
-        means = [icq_mean, translocation_mean, ccs_mean]
-        stds = [icq_std, translocation_std, ccs_std]
-        
-        bars4 = ax4.bar(parameters, means, yerr=stds, capsize=8, width=0.6,
-                    color=colors, alpha=0.8, edgecolor='white', linewidth=0.5,
-                    error_kw={'elinewidth': 2, 'capthick': 2})
-        ax4.set_title(f'Statistical Summary (Mean ± SD)', fontweight='bold', fontsize=12, pad=15)
-        ax4.set_ylabel('Parameter Value', fontweight='bold')
-        ax4.grid(True, alpha=0.3)
-        
-        for i, (bar, mean, std) in enumerate(zip(bars4, means, stds)):
-            height = bar.get_height()
-            ax4.text(bar.get_x() + bar.get_width()/2., height + std + 0.02,
-                    f'{mean:.3f}±{std:.3f}', ha='center', va='bottom', 
-                    fontsize=10, fontweight='bold')
+                # Manders M1 and M2
+                if 'manders_coefficients' in struct:
+                    manders = struct['manders_coefficients']
+                    m1 = manders.get('m1', 0)
+                    m2 = manders.get('m2', 0)
+                else:
+                    m1 = m2 = 0
 
-        ax5 = fig.add_subplot(2, 3, 5)
-        data_for_boxplot = [icq_values, translocation_values, ccs_values]
-        box_plot = ax5.boxplot(data_for_boxplot, labels=parameters, patch_artist=True)
-        
-        for patch, color in zip(box_plot['boxes'], colors):
-            patch.set_facecolor(color)
-            patch.set_alpha(0.7)
-        
-        ax5.set_title(f'Parameter Distribution', fontweight='bold', fontsize=12, pad=15)
-        ax5.set_ylabel('Parameter Value', fontweight='bold')
-        ax5.grid(True, alpha=0.3)
+                # Append to data
+                data['images'].append(image_name)
+                data['recruitment'].append(recruitment)
+                data['enrichment'].append(enrichment)
+                data['ccs'].append(ccs)
+                data['jaccard'].append(jaccard)
+                data['m1'].append(m1)
+                data['m2'].append(m2)
 
-        ax6 = fig.add_subplot(2, 3, 6)
-        ax6.axis('off')
-        
-        summary_text = f"""📊 Batch Analysis Summary
-
-    🎯 Analysis Mode: {current_mode.upper()}
-    📈 Total Images: {len(self.results)}
-    🔬 Analysis Type: {"Comprehensive" if any(hasattr(r, 'comprehensive_data') and r.comprehensive_data for r in self.results) else "Legacy"}
-
-    📊 Average Results:
-    • ICQ Score: {icq_mean:.3f} ± {icq_std:.3f}
-    • Translocation: {translocation_mean*100:.1f}% ± {translocation_std*100:.1f}%
-    • CCS Score: {ccs_mean:.3f} ± {ccs_std:.3f}
-
-    🔍 Range Analysis:
-    • ICQ Range: [{min(icq_values):.3f}, {max(icq_values):.3f}]
-    • Trans Range: [{min(translocation_values)*100:.1f}%, {max(translocation_values)*100:.1f}%]
-    • CCS Range: [{min(ccs_values):.3f}, {max(ccs_values):.3f}]
-
-    💡 Quality Assessment:
-    • Consistent Results: {'Yes' if max(ccs_std, translocation_std, icq_std) < 0.2 else 'Variable'}
-    • Sample Size: {'Good' if len(self.results) >= 5 else 'Small'}"""
-        
-        ax6.text(0.05, 0.95, summary_text, transform=ax6.transAxes, 
-                fontsize=10, verticalalignment='top', family='monospace',
-                bbox=dict(boxstyle="round,pad=0.5", facecolor="lightgreen", alpha=0.3))
-
-        fig.suptitle(f'📈 Batch Analysis Overview: {len(self.results)} Images', 
-                    fontsize=16, fontweight='bold')
-
-        canvas = FigureCanvasTkAgg(fig, master=self.figure_frame)
-        canvas.draw()
-        canvas.flush_events()
-        canvas.get_tk_widget().pack(fill='both', expand=True)
-
-        toolbar = NavigationToolbar2Tk(canvas, self.figure_frame)
-        toolbar.update()
-        toolbar.pack(side=tk.BOTTOM, fill=tk.X)
-
-    def show_enhanced_batch_visualization(self):
-        """Show enhanced batch visualization with enrichment and recruitment plots"""
-        for widget in self.figure_frame.winfo_children():
-            widget.destroy()
-
-        if not self.results:
-            placeholder_frame = ttk.Frame(self.figure_frame)
-            placeholder_frame.pack(fill='both', expand=True)
-            
-            placeholder_label = ttk.Label(placeholder_frame, 
-                                        text="📊 No Results Available\n\nProcess some images first to see enhanced batch analysis.",
-                                        font=('TkDefaultFont', 14), 
-                                        foreground='gray',
-                                        justify='center')
-            placeholder_label.pack(expand=True)
+        if not data['images']:
+            self.show_error_display("No comprehensive analysis data available for batch overview")
             return
 
-        fig = Figure(figsize=(16, 13), dpi=100)
-        fig.patch.set_facecolor('white')
-        fig.subplots_adjust(left=0.08, right=0.95, top=0.92, bottom=0.12, wspace=0.4, hspace=0.5)
+        # Create figure with 2x3 subplots
+        fig = Figure(figsize=(18, 10), dpi=100)
+        fig.suptitle('Batch Overview - Colocalization Metrics', fontsize=16, fontweight='bold')
 
-        icq_values = [r.statistics['icq']['mean'] for r in self.results]
-        translocation_values = [r.statistics['translocation']['mean'] for r in self.results]
-        ccs_values = [r.statistics['ccs']['mean'] for r in self.results]
-        experiment_names = [r.experiment_id for r in self.results]
+        # Define subplot layout and parameters
+        params = [
+            ('recruitment', 'Recruitment', 'Cherry→GFP' if detection_mode == 'gfp' else 'GFP→Cherry'),
+            ('enrichment', 'Enrichment', 'Cherry in GFP' if detection_mode == 'gfp' else 'GFP in Cherry'),
+            ('ccs', 'CCS', 'Colocalization Score'),
+            ('jaccard', 'Jaccard', 'Overlap Index'),
+            ('m1', 'M1', 'Manders (GFP)'),
+            ('m2', 'M2', 'Manders (Cherry)')
+        ]
 
-        # Extract enrichment and recruitment metrics
-        enrichment_gfp_values = []
-        enrichment_mcherry_values = []
-        recruitment_to_gfp_values = []
+        for idx, (key, title, subtitle) in enumerate(params, 1):
+            ax = fig.add_subplot(2, 3, idx)
 
-        recruitment_to_mcherry_values = []
-        
-        for result in self.results:
-            # Try to get enrichment metrics from comprehensive data
-            comprehensive = getattr(result, 'comprehensive_data', {})
-            structure_analysis = comprehensive.get('structure_analysis', {})
-            granule_metrics = structure_analysis.get('comprehensive_granule_metrics', {})
-            
-            enrichment_gfp_values.append(granule_metrics.get('gfp_enrichment_in_mcherry', 1.0))
-            enrichment_mcherry_values.append(granule_metrics.get('mcherry_enrichment_in_gfp', 1.0))
-            recruitment_to_gfp_values.append(granule_metrics.get('recruitment_icq_to_gfp', 0.0))
-            recruitment_to_mcherry_values.append(granule_metrics.get('recruitment_icq_to_mcherry', 0.0))
+            values = data[key]
+            images = data['images']
+            mean_val = np.mean(values)
 
-        icq_mean = np.mean(icq_values)
-        icq_std= np.std(icq_values)
-        translocation_mean = np.mean(translocation_values)
-        translocation_std = np.std(translocation_values)
-        ccs_mean = np.mean(ccs_values)
-        ccs_std = np.std(ccs_values)
+            # Create bar plot
+            x_pos = np.arange(len(images))
+            bars = ax.bar(x_pos, values, color='steelblue', alpha=0.7, edgecolor='black')
 
-        # Enrichment and recruitment statistics
-        enrichment_gfp_mean = np.mean(enrichment_gfp_values)
-        enrichment_gfp_std = np.std(enrichment_gfp_values)
-        enrichment_mcherry_mean = np.mean(enrichment_mcherry_values)
-        enrichment_mcherry_std = np.std(enrichment_mcherry_values)
-        recruitment_to_gfp_mean = np.mean(recruitment_to_gfp_values)
-        recruitment_to_gfp_std = np.std(recruitment_to_gfp_values)
-        recruitment_to_mcherry_mean = np.mean(recruitment_to_mcherry_values)
-        recruitment_to_mcherry_std = np.std(recruitment_to_mcherry_values)
+            # Add mean line
+            ax.axhline(y=mean_val, color='red', linestyle='--', linewidth=2, label=f'Mean: {mean_val:.3f}')
 
-        colors = ['#2E86AB', '#A23B72', '#F18F01', '#9B59B6', '#E74C3C', '#FF6347', '#32CD32']
-        
-        current_mode = self.granule_detection_mode.get()
-        mode_title = f"({current_mode.upper()} Enhanced Analysis)"
+            # Formatting
+            ax.set_xlabel('Images', fontsize=10, fontweight='bold')
+            ax.set_ylabel(title, fontsize=10, fontweight='bold')
+            ax.set_title(f'{title}\n{subtitle}', fontsize=11, fontweight='bold')
+            ax.set_xticks(x_pos)
+            ax.set_xticklabels(images, rotation=45, ha='right', fontsize=8)
+            ax.legend(loc='upper right', fontsize=9)
+            ax.grid(axis='y', alpha=0.3)
 
-        # Traditional metrics (top row)
-        ax1 = fig.add_subplot(2, 4, 1)
-        ax1.bar(range(len(icq_values)), icq_values, width=0.3, 
-                    color=colors[0], alpha=0.8, edgecolor='white', linewidth=0.5)
-        ax1.set_ylim(-0.7, 0.7)
-        ax1.set_title(f'ICQ Values Across Images {mode_title}', fontweight='bold', fontsize=12, pad=15)
-        ax1.set_xlabel('Image Index', fontweight='bold')
-        ax1.set_ylabel('ICQ Score', fontweight='bold')
-        ax1.set_xticks(range(0, len(experiment_names), max(1, len(experiment_names)//10)))
-        ax1.grid(True, alpha=0.3)
-        ax1.axhline(y=icq_mean, color='red', linestyle='--', alpha=0.7, linewidth=2, label=f'Mean: {icq_mean:.3f}')
-        ax1.legend(loc='upper right', fontsize=8)
+            # Add value labels on bars
+            for i, (bar, val) in enumerate(zip(bars, values)):
+                height = bar.get_height()
+                ax.text(bar.get_x() + bar.get_width()/2., height,
+                       f'{val:.2f}', ha='center', va='bottom', fontsize=8)
 
-        ax2 = fig.add_subplot(2, 4, 2)
-        ax2.bar(range(len(translocation_values)), translocation_values, width=0.3,
-                    color=colors[1], alpha=0.8, edgecolor='white', linewidth=0.5)
-        ax2.set_ylim(0,0.3)
-        ax2.set_title(f'Translocation Efficiency {mode_title}', fontweight='bold', fontsize=12, pad=15)
-        ax2.set_xlabel('Image Index', fontweight='bold')
-        ax2.set_ylabel('Translocation Efficiency', fontweight='bold')
-        ax2.set_xticks(range(0, len(experiment_names), max(1, len(experiment_names)//10)))
-        ax2.grid(True, alpha=0.3)
-        ax2.axhline(y=translocation_mean, color='red', linestyle='--', alpha=0.7, linewidth=2, label=f'Mean: {translocation_mean:.3f}')
-        ax2.legend(loc='upper right', fontsize=8)
-
-        ax3 = fig.add_subplot(2, 4, 3)
-        ax3.bar(range(len(ccs_values)), ccs_values, width=0.3,
-                    color=colors[2], alpha=0.8, edgecolor='white', linewidth=0.5)
-        ax3.set_ylim(0,1)
-        ax3.set_title(f'CCS Scores {mode_title}', fontweight='bold', fontsize=12, pad=15)
-        ax3.set_xlabel('Image Index', fontweight='bold')
-        ax3.set_ylabel('CCS Score', fontweight='bold')
-        ax3.set_xticks(range(0, len(experiment_names), max(1, len(experiment_names)//10)))
-        ax3.grid(True, alpha=0.3)
-        ax3.axhline(y=ccs_mean, color='red', linestyle='--', alpha=0.7, linewidth=2, label=f'Mean: {ccs_mean:.3f}')
-        ax3.legend(loc='upper right', fontsize=8)
-
-        # Enrichment analysis plots (middle row)
-        ax4 = fig.add_subplot(2, 4, 4)
-        ax4.bar(range(len(enrichment_mcherry_values)),enrichment_mcherry_values, width=0.3,
-                    color=colors[3], alpha=0.8, edgecolor='white', linewidth=0.5)
-        ax4.set_ylim(-5,5)
-        ax4.set_title(f'mCherry Enrichment in GFP Granules', fontweight='bold', fontsize=12, pad=15)
-        ax4.set_xlabel('Image Index', fontweight='bold')
-        ax4.set_ylabel('Enrichment Ratio', fontweight='bold')
-        ax4.set_xticks(range(0, len(experiment_names), max(1, len(experiment_names)//10)))
-        ax4.grid(True, alpha=0.3)
-        ax4.axhline(y=1.0, color='black', linestyle='-', alpha=0.5, linewidth=1, label='No Enrichment')
-        ax4.axhline(y=enrichment_mcherry_mean, color='red', linestyle='--', alpha=0.7, linewidth=2, label=f'Mean: {enrichment_mcherry_mean:.2f}')
-        ax4.legend(loc='upper right', fontsize=8)
-
-        ax5 = fig.add_subplot(2, 4, 5)
-        bars5=ax5.bar(range(len(enrichment_gfp_values)),enrichment_gfp_values, width=0.3,
-                    color=colors[4], alpha=0.8, edgecolor='white', linewidth=0.5)
-        ax5.set_ylim(-5, 5)
-        ax5.set_title(f'GFP Enrichment in mCherry Granules', fontweight='bold', fontsize=12, pad=15)
-        ax5.set_xlabel('Image Index', fontweight='bold')
-        ax5.set_ylabel('Enrichment Factor', fontweight='bold')
-        ax5.set_xticks(range(0, len(experiment_names), max(1, len(experiment_names)//10)))
-        ax5.grid(True, alpha=0.3)
-        ax5.axhline(y=1.0, color='black', linestyle='-', alpha=0.5, linewidth=1, label='No Enrichment')
-        ax5.axhline(y=enrichment_gfp_mean, color='red', linestyle='--', alpha=0.7, linewidth=2, label=f'Mean: {enrichment_gfp_mean:.2f}')
-        ax5.legend(loc='upper right', fontsize=8)
-
-        # # Enrichment comparison plot
-        # ax6 = fig.add_subplot(3, 3, 6)
-        # enrichment_comparison = np.array(enrichment_mcherry_values) / np.array(enrichment_gfp_values)
-        # bars6 = ax6.bar(range(len(enrichment_comparison)), enrichment_comparison, width=0.6,
-        #             color='#FF8C00', alpha=0.8, edgecolor='white', linewidth=0.5)
-        # ax6.set_title(f'Enrichment Ratio (mCherry/GFP)', fontweight='bold', fontsize=12, pad=15)
-        # ax6.set_xlabel('Image Index', fontweight='bold')
-        # ax6.set_ylabel('Enrichment Ratio', fontweight='bold')
-        # ax6.set_xticks(range(0, len(experiment_names), max(1, len(experiment_names)//10)))
-        # ax6.grid(True, alpha=0.3)
-        # ax6.axhline(y=1.0, color='black', linestyle='-', alpha=0.5, linewidth=1, label='Equal Enrichment')
-        # ax6.axhline(y=np.mean(enrichment_comparison), color='red', linestyle='--', alpha=0.7, linewidth=2, 
-        #            label=f'Mean: {np.mean(enrichment_comparison):.2f}')
-        # ax6.legend(loc='upper right', fontsize=8)
-
-        # Recruitment analysis plots (bottom row)
-        ax6 = fig.add_subplot(3, 3, 7)
-        bars6=ax6.bar(range(len(recruitment_to_gfp_values)),recruitment_to_gfp_values, width=0.3,
-                    color=colors[5], alpha=0.8, edgecolor='white', linewidth=0.5)
-        ax6.set_ylim(-.5, .5)
-        ax6.set_title(f'mCherry Recruitment to GFP Granules', fontweight='bold', fontsize=12, pad=15)
-        ax6.set_xlabel('Image Index', fontweight='bold')
-        ax6.set_ylabel('Recruitment ICQ', fontweight='bold')
-        ax6.set_xticks(range(0, len(experiment_names), max(1, len(experiment_names)//10)))
-        ax6.grid(True, alpha=0.3)
-        ax6.axhline(y=0.0, color='black', linestyle='-', alpha=0.5, linewidth=1, label='No Recruitment')
-        ax6.axhline(y=recruitment_to_gfp_mean, color='red', linestyle='--', alpha=0.7, linewidth=2, 
-                   label=f'Mean: {recruitment_to_gfp_mean:.3f}')
-        ax6.legend(loc='upper right', fontsize=8)
-
-        ax7 = fig.add_subplot(3, 3, 8)
-        bars7=ax7.bar(range(len(recruitment_to_mcherry_values)), recruitment_to_mcherry_values, width=0.3,
-                    color=colors[6], alpha=0.8, edgecolor='white', linewidth=0.5)
-        ax7.set_title(f'GFP Recruitment to mCherry Granules', fontweight='bold', fontsize=12, pad=15)
-        ax7.set_xlabel('Image Index', fontweight='bold')
-        ax7.set_ylabel('Recruitment ICQ', fontweight='bold')
-        ax7.set_xticks(range(0, len(experiment_names), max(1, len(experiment_names)//10)))
-        ax7.grid(True, alpha=0.3)
-        ax7.axhline(y=0.0, color='black', linestyle='-', alpha=0.5, linewidth=1, label='No Recruitment')
-        ax7.axhline(y=recruitment_to_mcherry_mean, color='red', linestyle='--', alpha=0.7, linewidth=2, 
-                   label=f'Mean: {recruitment_to_mcherry_mean:.3f}')
-        ax7.legend(loc='upper right', fontsize=8)
-
-        # # Summary statistics plot
-        # ax9 = fig.add_subplot(3, 3, 9)
-        # ax9.axis('off')
-        
-#         summary_text = f"""📊 Enhanced Batch Analysis Summary
-
-# 🎯 Analysis Mode: {current_mode.upper()}
-# 📈 Total Images: {len(self.results)}
-
-# 📊 Traditional Metrics:
-# • ICQ Score: {icq_mean:.3f} ± {icq_std:.3f}
-# • Translocation: {translocation_mean*100:.1f}% ± {translocation_std*100:.1f}%
-# • CCS Score: {ccs_mean:.3f} ± {ccs_std:.3f}
-
-# 🔬 Enrichment Analysis:
-# • mCherry → GFP: {enrichment_mcherry_mean:.2f}x ± {enrichment_mcherry_std:.2f}
-# • GFP → mCherry: {enrichment_gfp_mean:.2f}x ± {enrichment_gfp_std:.2f}
-# • Enrichment Ratio: {np.mean(enrichment_comparison):.2f} ± {np.std(enrichment_comparison):.2f}
-
-# 🧲 Recruitment Analysis:
-# • mCherry → GFP: {recruitment_to_gfp_mean:.3f} ± {recruitment_to_gfp_std:.3f}
-# • GFP → mCherry: {recruitment_to_mcherry_mean:.3f} ± {recruitment_to_mcherry_std:.3f}
-
-# 💡 Interpretation:
-# • Enrichment >1.2x: Strong recruitment
-# • Recruitment ICQ >0.1: Positive co-localization
-# • Recruitment ICQ <-0.1: Mutual exclusion"""
-        
-#         ax9.text(0.05, 0.95, summary_text, transform=ax9.transAxes, 
-#                 fontsize=10, verticalalignment='top', family='monospace',
-#                 bbox=dict(boxstyle="round,pad=0.5", facecolor="lightblue", alpha=0.3))
         fig.tight_layout()
-        fig.suptitle(f'📈 Enhanced Batch Analysis with Enrichment & Recruitment: {len(self.results)} Images', 
-                    fontsize=18, fontweight='bold')
 
+        # Embed in tkinter
         canvas = FigureCanvasTkAgg(fig, master=self.figure_frame)
         canvas.draw()
-        canvas.flush_events()
         canvas.get_tk_widget().pack(fill='both', expand=True)
 
         toolbar = NavigationToolbar2Tk(canvas, self.figure_frame)
         toolbar.update()
         toolbar.pack(side=tk.BOTTOM, fill=tk.X)
+
+        print("✅ Batch Overview displayed with 6 parameter plots")
+
 
     def plot_metric_distribution(self, ax, metric_name, title, color, as_percentage=False):
         """Plot distribution histogram for a specific metric"""
@@ -6126,8 +5885,6 @@ The analysis calculates:
                 self.show_comprehensive_analysis_display(selected_result)
             elif display_type == "batch_overview":
                 self.show_batch_visualization()
-            elif display_type == "enhanced_batch":
-                self.show_enhanced_batch_visualization()
             # NEW: 4 Colocalization Types
             elif display_type == "intensity_coloc":
                 self.show_intensity_based_colocalization(selected_result)
@@ -8004,10 +7761,8 @@ The analysis calculates:
         
         ttk.Radiobutton(analysis_frame, text="🔬 All Metrics", variable=self.current_display, 
                     value="comprehensive", command=self.update_display_type).pack(side='left', padx=5)
-        ttk.Radiobutton(analysis_frame, text="📈 Batch Overview", variable=self.current_display, 
+        ttk.Radiobutton(analysis_frame, text="📈 Batch Overview", variable=self.current_display,
                     value="batch_overview", command=self.update_display_type).pack(side='left', padx=5)
-        ttk.Radiobutton(analysis_frame, text="🚀 Enhanced Batch", variable=self.current_display, 
-                    value="enhanced_batch", command=self.update_display_type).pack(side='left', padx=5)
         
         # Row 2: NEW - 4 Colocalization Types
         coloc_frame = ttk.Frame(display_frame)
@@ -9039,9 +8794,6 @@ The analysis calculates:
             # Handle batch overview specially - it doesn't need a specific image
             if display_type == "batch_overview":
                 self.show_batch_visualization()
-                return
-            elif display_type == "enhanced_batch":
-                self.show_enhanced_batch_visualization()
                 return
                 
             # For other display types, ensure we have an image selected
