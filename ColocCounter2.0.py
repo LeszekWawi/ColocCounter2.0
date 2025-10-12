@@ -4678,12 +4678,13 @@ The analysis calculates:
         
         fig = Figure(figsize=(14, 7), dpi=100)
         fig.patch.set_facecolor('white')
-        
-        # Better spacing
+
+        # Better spacing with enlarged image (3:2:2:2 ratio)
         gs = GridSpec(1, 4, figure=fig,
-                    left=0.1, right=0.95,
-                    top=0.90, bottom=0.10,
-                    wspace=0.3, hspace=0.4)
+                    width_ratios=[3, 2, 2, 2],
+                    left=0.05, right=0.97,
+                    top=0.92, bottom=0.08,
+                    wspace=0.20)
         
         try:
             # Extract data
@@ -4706,23 +4707,22 @@ The analysis calculates:
                     rgb_composite[:, :, 0] = mcherry_img / mcherry_img.max() * 0.8  # Red
                 
                 ax1.imshow(rgb_composite, interpolation='nearest')
-                ax1.set_title('📸 Original Channels', fontsize=12, fontweight='bold')
+                # No title for image
             else:
-                ax1.text(0.5, 0.5, '📸 Original Image\nNot Available', ha='center', va='center', 
+                ax1.text(0.5, 0.5, '📸 Original Image\nNot Available', ha='center', va='center',
                         transform=ax1.transAxes, fontsize=12, style='italic')
-                ax1.set_title('📸 Original Channels', fontsize=12, fontweight='bold')
             ax1.axis('off')
-            
+
             # Panel 2: ICQ Comparison
             ax2 = fig.add_subplot(gs[0, 1])
             global_icq = global_analysis['icq_global']
             structure_icq = structure_analysis['icq_in_structures']
             icq_enhancement = structure_analysis['icq_enhancement']
-            
-            bars = ax2.bar(['Global\nICQ', 'Structure\nICQ'], [global_icq, structure_icq], 
+
+            bars = ax2.bar(['Global\nICQ', 'Structure\nICQ'], [global_icq, structure_icq],
                         color=['lightblue', 'darkblue'], alpha=0.8, width=0.6)
             ax2.set_ylim([-0.6, 0.6])
-            ax2.set_title('🔍 ICQ Comparison', fontsize=12, fontweight='bold')
+            ax2.set_title('🔍 ICQ Comparison', fontsize=12, fontweight='bold', pad=15)
             ax2.set_ylabel('ICQ Score', fontsize=10)
             ax2.axhline(y=0, color='gray', linestyle='-', alpha=0.7)
             
@@ -5900,8 +5900,6 @@ The analysis calculates:
                 self.show_enrichment_analysis(selected_result)
             elif display_type == "recruitment_icq":
                 self.show_recruitment_icq_analysis(selected_result)
-            elif display_type == "method_comparison":
-                self.show_method_comparison(selected_result)
             elif display_type == "all_channels":
                 self.show_all_channels(selected_result)
             else:
@@ -6718,9 +6716,9 @@ The analysis calculates:
     • M2: Fraction of mCherry that colocalizes
     • Higher values = more colocalization"""
         
-        ax4.text(0.05, 0.95, stats_text, transform=ax4.transAxes, 
-                fontsize=10, verticalalignment='top', family='monospace',
-                bbox=dict(boxstyle="round,pad=0.5", facecolor="lightyellow", alpha=0.8))
+        ax4.text(0.05, 0.98, stats_text, transform=ax4.transAxes,
+                fontsize=6, verticalalignment='top', family='monospace',
+                bbox=dict(boxstyle="round,pad=0.3", facecolor="lightyellow", alpha=0.8))
         
         fig.suptitle('🟡 Intensity-Based Colocalization Analysis (Otsu Thresholding)',
                     fontsize=14, fontweight='bold')
@@ -6807,15 +6805,28 @@ The analysis calculates:
         icq_score = np.clip(icq_score, -0.5, 0.5)
         
         print(f"ICQ calculated: {icq_score:.4f} (N+={n_positive}, N-={n_negative}, N0={n_zero})")
-        
-        # Create figure with 1x2 layout (NO PANEL 3 WITH YELLOW!)
-        fig = Figure(figsize=(14, 10))
+
+        # Create figure with GridSpec layout (Image:Plot:Table = 2:2:1.5)
+        from matplotlib.gridspec import GridSpec
+        fig = Figure(figsize=(18, 8), dpi=100)
         fig.patch.set_facecolor('white')
-        
+
+        # Create balanced 1 row × 3 columns layout
+        gs = GridSpec(1, 3, figure=fig,
+                      width_ratios=[3, 2, 1.3],  # Larger image panel (50% more space), compact text panel
+                      left=0.02, right=0.98, top=0.92, bottom=0.10,
+                      wspace=0.25, hspace=0.20)  # Tighter spacing between panels
+
+        ax1 = fig.add_subplot(gs[0, 0])  # Left: Microscopy image
+        ax1.set_position([0.00, 0.08, 0.38, 0.84])  # 3x larger image, 3cm left
+        ax2 = fig.add_subplot(gs[0, 1])  # Center: ICQ plot
+        ax2.set_position([0.40, 0.12, 0.28, 0.76])  # 2x larger plot, 3cm left
+        ax3 = fig.add_subplot(gs[0, 2])  # Right: Statistics table
+        ax3.set_position([0.70, 0.35, 0.28, 0.55])  # Adjusted text panel position
+
         # ===================================================================
         # PANEL 1: PURE ICQ MAP - NO YELLOW PIXELS ALLOWED
         # ===================================================================
-        ax1 = fig.add_subplot(1, 3, 1)
         
         # Create PURE ICQ visualization
         rgb_pure_icq = np.zeros((*gfp_img.shape, 3), dtype=np.float32)
@@ -6840,44 +6851,37 @@ The analysis calculates:
             print("✅ VERIFIED: NO yellow pixels in pure ICQ panel")
         
         ax1.imshow(rgb_pure_icq, interpolation='nearest')
-        ax1.set_title(f'🌍 PURE ICQ MAP - NO YELLOW PIXELS!\n'
-                    f'ICQ Score: {icq_score:.4f}\n'
-                    f'CYAN=Positive, RED=Negative, GRAY=Zero', 
-                    fontweight='bold', fontsize=14)
         ax1.axis('off')
+        ax1.text(0.5, -0.02, "1% of top ICQ pixels", transform=ax1.transAxes,
+                ha='center', va='top', fontsize=10, style='italic')
         
         # ===================================================================
-        # PANEL 2: STATISTICS AND INTERPRETATION - NO IMAGES
+        # PANEL 2: ICQ DISTRIBUTION PLOT
         # ===================================================================
-        ax2 = fig.add_subplot(1, 3, 2)
-        ax2.axis('off')
-        
+
         # Create bar chart of ICQ distribution
         categories = ['Positive\nICQ', 'Negative\nICQ', 'Zero\nICQ']
         values = [n_positive, n_negative, n_zero]
-        colors = ['cyan', 'red', 'gray']
-        
-        # Inset axes for bar chart
-        from mpl_toolkits.axes_grid1.inset_locator import inset_axes
-        ax_bar = inset_axes(ax2, width="60%", height="40%", loc='upper right')
-        
-        ax_bar = inset_axes(ax2, width="60%", height="40%", loc='upper right',
-                    # bbox_to_anchor=(1.25, 0.75, 0.05, 0.05),
-                    # bbox_transform=ax2.transAxes
-                    )
+        colors_plot = ['cyan', 'red', 'gray']
 
-
-        bars = ax_bar.bar(categories, values, color=colors, alpha=0.8)
-        ax_bar.set_title('ICQ Pixel Distribution', fontweight='bold')
-        ax_bar.set_ylabel('Pixel Count')
+        bars = ax2.bar(categories, values, color=colors_plot, alpha=0.8)
+        ax2.set_xlabel('ICQ Category', fontsize=11, fontweight='bold')
+        ax2.set_ylabel('Pixel Count', fontsize=11, fontweight='bold')
+        ax2.set_title('ICQ Distribution', fontsize=12, fontweight='bold', pad=22)
+        ax2.tick_params(axis='both', labelsize=10)
+        ax2.grid(axis='y', alpha=0.3)
         
         # Add value labels
         for bar, val in zip(bars, values):
             height = bar.get_height()
-            ax_bar.text(bar.get_x() + bar.get_width()/2, height + max(values)*0.01,
+            ax2.text(bar.get_x() + bar.get_width()/2, height + max(values)*0.01,
                     f'{val:,}\n({val/np.sum(cell_mask)*100:.1f}%)',
                     ha='center', va='bottom', fontweight='bold', fontsize=10)
-        
+
+        # ===================================================================
+        # PANEL 3: STATISTICS TABLE
+        # ===================================================================
+
         # Biological interpretation
         if icq_score > 0.25:
             interpretation = "STRONG POSITIVE CORRELATION"
@@ -6953,23 +6957,24 @@ The analysis calculates:
     ICQ ≈ 0: No spatial relationship
 
     🎯 IMAGE: {result.experiment_id}"""
-        
-        ax2.text(1.25, 1.25, stats_text, transform=ax2.transAxes, 
-                fontsize=9, verticalalignment='top', horizontalalignment='left',
-                bbox=dict(boxstyle="round,pad=0.5", facecolor=color_bg, alpha=0.3),
-                family='monospace')
-        
-        # Main title
-        fig.suptitle(f'🌍 Whole-Cell ICQ Analysis: {result.experiment_id}\n'
-                    f'✅ PURE ICQ VISUALIZATION - ZERO YELLOW PIXELS', 
-                    fontsize=12, fontweight='bold')
+
+        ax3.axis('off')
+        ax3.text(0.05, 0.98, stats_text, transform=ax3.transAxes,
+                fontsize=7, verticalalignment='top', family='monospace',
+                bbox=dict(boxstyle="round,pad=0.4", facecolor="lightyellow", alpha=0.8))
+
+        # Main title (just image name)
+        # fig.suptitle(f'{result.experiment_id}', fontsize=14, fontweight='bold')  # Removed for cleaner layout
         
        
         # Embed in GUI
         canvas = FigureCanvasTkAgg(fig, master=self.figure_frame)
         canvas.draw()
-        canvas.get_tk_widget().pack(fill='both', expand=True)
-        
+
+        # Configure canvas widget to fill available space
+        canvas_widget = canvas.get_tk_widget()
+        canvas_widget.pack(fill='both', expand=True, padx=5, pady=5)
+
         toolbar = NavigationToolbar2Tk(canvas, self.figure_frame)
         toolbar.update()
         toolbar.pack(side=tk.BOTTOM, fill=tk.X)
@@ -7319,14 +7324,15 @@ The analysis calculates:
         granule_icq = structure_analysis.get('icq_in_structures', 0.0)
         global_icq = comprehensive_data['global_analysis']['icq_global']
 
-        # Create figure with 3 panels: 2 images + 1 text
+        # Create figure with 1x3 GridSpec layout
         from matplotlib.gridspec import GridSpec
-        fig = Figure(figsize=(16, 10))
+        fig = Figure(figsize=(18, 6))
         fig.patch.set_facecolor('white')
-        fig.subplots_adjust(left=0.05, right=0.95, top=0.92, bottom=0.08, wspace=0.3, hspace=0.4)
 
-        # Use GridSpec for better proportion control
-        gs = GridSpec(1, 4, figure=fig, width_ratios=[2, 2, 2, 1], wspace=0.3)
+        # Use GridSpec for 1x3 layout with proper spacing
+        gs = GridSpec(1, 3, figure=fig,
+                      left=0.05, right=0.97, top=0.92, bottom=0.08,
+                      wspace=0.20)
 
         # Panel 1: Detected Granules
         ax1 = fig.add_subplot(gs[0, 0])
@@ -7362,13 +7368,9 @@ The analysis calculates:
         ax2.set_title('Granule Level ICQ\n(Blue: Positive, Orange: Negative)', fontweight='bold', fontsize=12)
         ax2.axis('off')
 
-        # Panel 3: Empty placeholder (for GridSpec consistency)
+        # Panel 3: Statistics Table
         ax3 = fig.add_subplot(gs[0, 2])
         ax3.axis('off')
-
-        # Panel 4: Statistics Text
-        ax4 = fig.add_subplot(gs[0, 3])
-        ax4.axis('off')
 
         # Calculate percentages
         positive_pct = (granule_positive_pixels/total_granule_pixels*100) if total_granule_pixels > 0 else 0
@@ -7411,7 +7413,7 @@ The analysis calculates:
 • ICQ < 0: Mutual exclusion
 • Higher values = stronger colocalization"""
 
-        ax4.text(0.05, 0.95, stats_text, transform=ax4.transAxes,
+        ax3.text(0.05, 0.95, stats_text, transform=ax3.transAxes,
                 fontsize=8, verticalalignment='top', family='monospace',
                 bbox=dict(boxstyle="round,pad=0.5", facecolor='lightblue', alpha=0.8))
 
@@ -7784,10 +7786,8 @@ The analysis calculates:
                     value="physical_overlap", command=self.update_display_type).pack(side='left', padx=5)
         ttk.Radiobutton(granule_methods_frame, text="📈 Enrichment Analysis", variable=self.current_display, 
                     value="enrichment_analysis", command=self.update_display_type).pack(side='left', padx=5)
-        ttk.Radiobutton(granule_methods_frame, text="🎯 Recruitment ICQ", variable=self.current_display, 
+        ttk.Radiobutton(granule_methods_frame, text="🎯 Recruitment ICQ", variable=self.current_display,
                     value="recruitment_icq", command=self.update_display_type).pack(side='left', padx=5)
-        ttk.Radiobutton(granule_methods_frame, text="🔍 Method Comparison", variable=self.current_display, 
-                    value="method_comparison", command=self.update_display_type).pack(side='left', padx=5)
 
         # Row 3: All Channels View (automatically displayed)
         image_frame = ttk.Frame(display_frame)
@@ -8186,7 +8186,7 @@ The analysis calculates:
         ax_img = fig.add_subplot(1, 4, 1)
         overlap_overlay = self.create_analysis_overlay(gfp_img, mcherry_img, "comparison", metrics_data)
         ax_img.imshow(overlap_overlay, interpolation='nearest')
-        ax_img.set_title('Physical Overlap Visualization\\n(Green=GFP, Red=mCherry, Magenta=Overlap)', 
+        ax_img.set_title('Physical Overlap Visualization\n(Green=GFP, Red=mCherry, Magenta=Overlap)',
                         fontweight='bold', fontsize=10)
         ax_img.axis('off')
         
@@ -8471,110 +8471,6 @@ The analysis calculates:
         canvas.draw()
         canvas.get_tk_widget().pack(fill='both', expand=True)
 
-    def show_method_comparison(self, result):
-        """Display comparison of all colocalization methods"""
-        for widget in self.figure_frame.winfo_children():
-            widget.destroy()
-        
-        if not (hasattr(result, 'comprehensive_data') and result.comprehensive_data):
-            self.show_error_display("Method comparison requires comprehensive data")
-            return
-        
-        # Load original image
-        two_channel_img = self.load_images_for_result(result.experiment_id)
-        if two_channel_img is None:
-            # Continue without image visualization
-            pass
-        else:
-            gfp_img = two_channel_img[:, :, 0]
-            mcherry_img = two_channel_img[:, :, 1]
-            
-            comprehensive_data = result.comprehensive_data
-            metrics = comprehensive_data['cross_structure_analysis'].get('comprehensive_granule_metrics', {})
-            
-            # Get granule masks
-            vis_data = comprehensive_data.get('visualization_data', {})
-            metrics_data = {
-                'gfp_granules': vis_data.get('gfp_granules', np.zeros_like(gfp_img)),
-                'mcherry_granules': vis_data.get('mcherry_granules', np.zeros_like(gfp_img))
-            }
-            metrics_data.update(metrics)
-            
-            fig = Figure(figsize=(14, 10))  # Standardized for GUI display
-            fig.patch.set_facecolor('white')
-            
-            # Add comparison visualization
-            ax_img = fig.add_subplot(1, 1, 1)
-            # comparison_overlay = self.create_analysis_overlay(gfp_img, mcherry_img, "comparison", metrics_data)
-            # ax_img.imshow(comparison_overlay, interpolation='nearest')
-            # ax_img.set_title('All Methods Visualization\\n(Green=GFP only, Red=mCherry only, Magenta=Overlap)', 
-            #                 fontweight='bold', fontsize=10)
-            # ax_img.axis('off')
-            
-            # Table in position 2 (spanning right side)
-            ax = fig.add_subplot(1, 2, 2)
-        ax.axis('tight')
-        ax.axis('off')
-        
-        # Prepare data for table
-        jaccard = metrics.get('jaccard', 0)
-        mcherry_enrichment = metrics.get('mcherry_enrichment_in_gfp', 1.0)
-        gfp_enrichment = metrics.get('gfp_enrichment_in_mcherry', 1.0)
-        traditional_icq = metrics.get('traditional_icq', 0)
-        recruitment_icq = metrics.get('recruitment_icq_overlap', 0)
-        
-        table_data = [
-            ['Method', 'Value', 'Range', 'Interpretation', 'Biological Meaning'],
-            ['Physical Overlap (Jaccard)', f'{jaccard:.3f}', '0-1', 
-            'Strong' if jaccard > 0.5 else 'Moderate' if jaccard > 0.2 else 'Weak',
-            'Spatial overlap of structures'],
-            ['mCherry Enrichment in GFP', f'{mcherry_enrichment:.2f}x', '>1 enriched', 
-            'Enriched' if mcherry_enrichment > 1.2 else 'Depleted' if mcherry_enrichment < 0.8 else 'No change',
-            'mCherry recruitment to GFP granules'],
-            ['GFP Enrichment in mCherry', f'{gfp_enrichment:.2f}x', '>1 enriched',
-            'Enriched' if gfp_enrichment > 1.2 else 'Depleted' if gfp_enrichment < 0.8 else 'No change',
-            'GFP recruitment to mCherry granules'],
-            ['Traditional ICQ', f'{traditional_icq:.3f}', '-0.5 to 0.5',
-            'Positive' if traditional_icq > 0.1 else 'Negative' if traditional_icq < -0.1 else 'Random',
-            'Correlation using local means'],
-            ['Recruitment ICQ', f'{recruitment_icq:.3f}', '-0.5 to 0.5',
-            'Positive' if recruitment_icq > 0.1 else 'Negative' if recruitment_icq < -0.1 else 'Random',
-            'True recruitment correlation'],
-        ]
-        
-        table = ax.table(cellText=table_data[1:], colLabels=table_data[0],
-                        cellLoc='center', loc='center',
-                        colWidths=[0.2, 0.15, 0.15, 0.2, 0.3])
-        
-        table.auto_set_font_size(False)
-        table.set_fontsize(10)
-        table.scale(1, 2)
-        
-        # Style header
-        for i in range(5):
-            table[(0, i)].set_facecolor('#4CAF50')
-            table[(0, i)].set_text_props(weight='bold', color='white')
-        
-        # Color code rows based on values
-        for i in range(1, 6):
-            if i == 1:  # Jaccard
-                color = 'lightgreen' if jaccard > 0.5 else 'lightyellow' if jaccard > 0.2 else 'lightcoral'
-            elif i in [2, 3]:  # Enrichment
-                val = mcherry_enrichment if i == 2 else gfp_enrichment
-                color = 'lightgreen' if val > 1.2 else 'lightcoral' if val < 0.8 else 'lightyellow'
-            else:  # ICQ
-                val = traditional_icq if i == 4 else recruitment_icq
-                color = 'lightgreen' if val > 0.1 else 'lightcoral' if val < -0.1 else 'lightyellow'
-            
-            for j in range(5):
-                table[(i, j)].set_facecolor(color)
-                table[(i, j)].set_alpha(0.3)
-        
-        fig.suptitle(f'Method Comparison: {result.experiment_id}', fontsize=16, fontweight='bold')
-        
-        canvas = FigureCanvasTkAgg(fig, master=self.figure_frame)
-        canvas.draw()
-        canvas.get_tk_widget().pack(fill='both', expand=True)
     def create_batch_tab(self):
         """Create the batch results summary tab with ALL comprehensive metrics"""
         
@@ -8943,146 +8839,173 @@ The analysis calculates:
             placeholder_label.pack(expand=True)
             return
 
-        fig = Figure(figsize=(16, 13), dpi=100)
-        fig.patch.set_facecolor('white')
-        fig.subplots_adjust(left=0.08, right=0.95, top=0.92, bottom=0.12, wspace=0.4, hspace=0.5)
+        # Create figure - compact size (reduced by 20%)
+        fig = plt.figure(figsize=(15.2, 6.0))
 
-        icq_values = [r.statistics['icq']['mean'] for r in self.results]
-        translocation_values = [r.statistics['translocation']['mean'] for r in self.results]
-        ccs_values = [r.statistics['ccs']['mean'] for r in self.results]
+        # Use GridSpec with adjusted spacing for smaller figure
+        from matplotlib.gridspec import GridSpec
+        gs = GridSpec(2, 3, figure=fig,
+                      left=0.06, right=0.98, top=0.97, bottom=0.10,
+                      wspace=0.22, hspace=0.32)
+
+        detection_mode = self.granule_detection_mode.get()
         experiment_names = [r.experiment_id for r in self.results]
 
-        # Extract enrichment and recruitment metrics
-        enrichment_gfp_values = []
-        enrichment_mcherry_values = []
-        recruitment_to_gfp_values = []
-        recruitment_to_mcherry_values = []
-        
+        # Extract all required metrics
+        recruitment_values = []
+        enrichment_values = []
+        ccs_values = []
+        jaccard_values = []
+        m1_values = []
+        m2_values = []
+
         for result in self.results:
-            # Try to get enrichment metrics from comprehensive data
-            comprehensive = getattr(result, 'comprehensive_data', {})
-            structure_analysis = comprehensive.get('structure_analysis', {})
-            granule_metrics = structure_analysis.get('comprehensive_granule_metrics', {})
-            
-            enrichment_gfp_values.append(granule_metrics.get('gfp_enrichment_in_mcherry', 1.0))
-            enrichment_mcherry_values.append(granule_metrics.get('mcherry_enrichment_in_gfp', 1.0))
-            recruitment_to_gfp_values.append(granule_metrics.get('recruitment_icq_to_gfp', 0.0))
-            recruitment_to_mcherry_values.append(granule_metrics.get('recruitment_icq_to_mcherry', 0.0))
+            if not hasattr(result, 'comprehensive_data') or not result.comprehensive_data:
+                continue
 
-        icq_mean = np.mean(icq_values)
-        icq_std = np.std(icq_values)
-        translocation_mean = np.mean(translocation_values)
-        translocation_std = np.std(translocation_values)
-        ccs_mean = np.mean(ccs_values)
-        ccs_std = np.std(ccs_values)
+            comp_data = result.comprehensive_data
+            image_name = result.experiment_id
 
-        # Enrichment and recruitment statistics
-        enrichment_gfp_mean = np.mean(enrichment_gfp_values)
-        enrichment_gfp_std = np.std(enrichment_gfp_values)
-        enrichment_mcherry_mean = np.mean(enrichment_mcherry_values)
-        enrichment_mcherry_std = np.std(enrichment_mcherry_values)
-        recruitment_to_gfp_mean = np.mean(recruitment_to_gfp_values)
-        recruitment_to_gfp_std = np.std(recruitment_to_gfp_values)
-        recruitment_to_mcherry_mean = np.mean(recruitment_to_mcherry_values)
-        recruitment_to_mcherry_std = np.std(recruitment_to_mcherry_values)
+            # ✅ CORRECT DATA SOURCE: Use comprehensive_granule_metrics from cross_structure_analysis
+            granule_metrics = {}
 
-        colors = ['#2E86AB', '#A23B72', '#F18F01', '#9B59B6', '#E74C3C', '#FF6347', '#32CD32']
-        
-        current_mode = self.granule_detection_mode.get()
-        mode_title = f"({current_mode.upper()} Granule Analysis)"
+            # Extract from cross_structure_analysis -> comprehensive_granule_metrics
+            if 'cross_structure_analysis' in comp_data:
+                cross_analysis = comp_data['cross_structure_analysis']
+                if 'comprehensive_granule_metrics' in cross_analysis:
+                    granule_metrics = cross_analysis['comprehensive_granule_metrics']
+                    print(f"✅ Found granule_metrics for {image_name}: {list(granule_metrics.keys())}")
 
-        ax1 = fig.add_subplot(2, 3, 1)
-        bars1 = ax1.bar(range(len(icq_values)), icq_values, width=0.6, 
-                    color=colors[0], alpha=0.8, edgecolor='white', linewidth=0.5)
-        ax1.set_title(f'ICQ Values Across Images {mode_title}', fontweight='bold', fontsize=12, pad=15)
-        ax1.set_xlabel('Image Index', fontweight='bold')
-        ax1.set_ylabel('ICQ Score', fontweight='bold')
-        ax1.set_xticks(range(0, len(experiment_names), max(1, len(experiment_names)//10)))
-        ax1.grid(True, alpha=0.3)
-        ax1.axhline(y=icq_mean, color='red', linestyle='--', alpha=0.7, linewidth=2, label=f'Mean: {icq_mean:.3f}')
-        ax1.legend(loc='upper right', fontsize=8)
+            # Recruitment - directional based on mode
+            if detection_mode == "gfp":
+                recruitment = granule_metrics.get('recruitment_icq_to_mcherry', 0)  # Cherry TO GFP
+            else:
+                recruitment = granule_metrics.get('recruitment_icq_to_gfp', 0)  # GFP TO Cherry
 
-        ax2 = fig.add_subplot(2, 3, 2)
-        bars2 = ax2.bar(range(len(translocation_values)), translocation_values, width=0.6,
-                    color=colors[1], alpha=0.8, edgecolor='white', linewidth=0.5)
-        ax2.set_title(f'Translocation Efficiency {mode_title}', fontweight='bold', fontsize=12, pad=15)
-        ax2.set_xlabel('Image Index', fontweight='bold')
-        ax2.set_ylabel('Translocation Efficiency', fontweight='bold')
-        ax2.set_xticks(range(0, len(experiment_names), max(1, len(experiment_names)//10)))
-        ax2.grid(True, alpha=0.3)
-        ax2.axhline(y=translocation_mean, color='red', linestyle='--', alpha=0.7, linewidth=2, label=f'Mean: {translocation_mean:.3f}')
-        ax2.legend(loc='upper right', fontsize=8)
+            # Enrichment - directional based on mode
+            if detection_mode == "gfp":
+                enrichment = granule_metrics.get('mcherry_enrichment_in_gfp', 1)  # Cherry IN GFP
+            else:
+                enrichment = granule_metrics.get('gfp_enrichment_in_mcherry', 1)  # GFP IN Cherry
 
-        ax3 = fig.add_subplot(2, 3, 3)
-        bars3 = ax3.bar(range(len(ccs_values)), ccs_values, width=0.6,
-                    color=colors[2], alpha=0.8, edgecolor='white', linewidth=0.5)
-        ax3.set_title(f'CCS Scores {mode_title}', fontweight='bold', fontsize=12, pad=15)
-        ax3.set_xlabel('Image Index', fontweight='bold')
-        ax3.set_ylabel('CCS Score', fontweight='bold')
-        ax3.set_xticks(range(0, len(experiment_names), max(1, len(experiment_names)//10)))
-        ax3.grid(True, alpha=0.3)
-        ax3.axhline(y=ccs_mean, color='red', linestyle='--', alpha=0.7, linewidth=2, label=f'Mean: {ccs_mean:.3f}')
-        ax3.legend(loc='upper right', fontsize=8)
+            # CCS - from result.statistics (working source)
+            ccs = 0
+            if hasattr(result, 'statistics') and 'ccs' in result.statistics:
+                ccs = result.statistics['ccs'].get('mean', 0)
 
-        ax4 = fig.add_subplot(2, 3, 4)
-        parameters = ['ICQ', 'Translocation', 'CCS']
-        means = [icq_mean, translocation_mean, ccs_mean]
-        stds = [icq_std, translocation_std, ccs_std]
-        
-        bars4 = ax4.bar(parameters, means, yerr=stds, capsize=8, width=0.6,
-                    color=colors, alpha=0.8, edgecolor='white', linewidth=0.5,
-                    error_kw={'elinewidth': 2, 'capthick': 2})
-        ax4.set_title(f'Statistical Summary (Mean ± SD)', fontweight='bold', fontsize=12, pad=15)
-        ax4.set_ylabel('Parameter Value', fontweight='bold')
-        ax4.grid(True, alpha=0.3)
-        
-        for i, (bar, mean, std) in enumerate(zip(bars4, means, stds)):
-            height = bar.get_height()
-            ax4.text(bar.get_x() + bar.get_width()/2., height + std + 0.02,
-                    f'{mean:.3f}±{std:.3f}', ha='center', va='bottom', 
-                    fontsize=10, fontweight='bold')
+            # Jaccard - from granule_metrics
+            jaccard = granule_metrics.get('jaccard', 0)
+            if jaccard == 0:
+                jaccard = granule_metrics.get('physical_overlap', 0)
 
-        ax5 = fig.add_subplot(2, 3, 5)
-        data_for_boxplot = [icq_values, translocation_values, ccs_values]
-        box_plot = ax5.boxplot(data_for_boxplot, labels=parameters, patch_artist=True)
-        
-        for patch, color in zip(box_plot['boxes'], colors):
-            patch.set_facecolor(color)
-            patch.set_alpha(0.7)
-        
-        ax5.set_title(f'Parameter Distribution', fontweight='bold', fontsize=12, pad=15)
-        ax5.set_ylabel('Parameter Value', fontweight='bold')
-        ax5.grid(True, alpha=0.3)
+            # Manders M1 and M2 - from global_analysis
+            m1 = 0
+            m2 = 0
+            if 'global_analysis' in comp_data:
+                global_analysis = comp_data['global_analysis']
+                if 'pixel_colocalization' in global_analysis:
+                    pixel_coloc = global_analysis['pixel_colocalization']
+                    m1 = pixel_coloc.get('manders_m1', 0)
+                    m2 = pixel_coloc.get('manders_m2', 0)
 
-        ax6 = fig.add_subplot(2, 3, 6)
-        ax6.axis('off')
-        
-        summary_text = f"""📊 Batch Analysis Summary
+            # Debug print for first result to verify data extraction
+            if result == self.results[0]:
+                print(f"\n📊 First result data extraction:")
+                print(f"  Image: {image_name}")
+                print(f"  Recruitment: {recruitment:.3f}")
+                print(f"  Enrichment: {enrichment:.3f}")
+                print(f"  CCS: {ccs:.3f}")
+                print(f"  Jaccard: {jaccard:.3f}")
+                print(f"  M1: {m1:.3f}, M2: {m2:.3f}")
 
-    🎯 Analysis Mode: {current_mode.upper()}
-    📈 Total Images: {len(self.results)}
-    🔬 Analysis Type: {"Comprehensive" if any(hasattr(r, 'comprehensive_data') and r.comprehensive_data for r in self.results) else "Legacy"}
+            # Append to data arrays
+            recruitment_values.append(recruitment)
+            enrichment_values.append(enrichment)
+            ccs_values.append(ccs)
+            jaccard_values.append(jaccard)
+            m1_values.append(m1)
+            m2_values.append(m2)
 
-    📊 Average Results:
-    • ICQ Score: {icq_mean:.3f} ± {icq_std:.3f}
-    • Translocation: {translocation_mean*100:.1f}% ± {translocation_std*100:.1f}%
-    • CCS Score: {ccs_mean:.3f} ± {ccs_std:.3f}
+        # Prepare data dictionary for plotting
+        data = {
+            'recruitment': recruitment_values,
+            'enrichment': enrichment_values,
+            'ccs': ccs_values,
+            'jaccard': jaccard_values,
+            'm1': m1_values,
+            'm2': m2_values,
+            'images': experiment_names
+        }
 
-    🔍 Range Analysis:
-    • ICQ Range: [{min(icq_values):.3f}, {max(icq_values):.3f}]
-    • Trans Range: [{min(translocation_values)*100:.1f}%, {max(translocation_values)*100:.1f}%]
-    • CCS Range: [{min(ccs_values):.3f}, {max(ccs_values):.3f}]
+        # Define subplot layout and parameters
+        params = [
+            ('recruitment', 'Recruitment', 'Cherry→GFP' if detection_mode == 'gfp' else 'GFP→Cherry'),
+            ('enrichment', 'Enrichment', 'Cherry in GFP' if detection_mode == 'gfp' else 'GFP in Cherry'),
+            ('ccs', 'CCS', 'Colocalization Score'),
+            ('jaccard', 'Jaccard', 'Overlap Index'),
+            ('m1', 'M1', 'Manders (GFP)'),
+            ('m2', 'M2', 'Manders (Cherry)')
+        ]
 
-    💡 Quality Assessment:
-    • Consistent Results: {'Yes' if max(ccs_std, translocation_std, icq_std) < 0.2 else 'Variable'}
-    • Sample Size: {'Good' if len(self.results) >= 5 else 'Small'}"""
-        
-        ax6.text(0.05, 0.95, summary_text, transform=ax6.transAxes, 
-                fontsize=10, verticalalignment='top', family='monospace',
-                bbox=dict(boxstyle="round,pad=0.5", facecolor="lightgreen", alpha=0.3))
+        for idx, (key, title, subtitle) in enumerate(params):
+            row = idx // 3
+            col = idx % 3
+            ax = fig.add_subplot(gs[row, col])
 
-        fig.suptitle(f'📈 Batch Analysis Overview: {len(self.results)} Images', 
-                    fontsize=16, fontweight='bold')
+            values = data[key]
+            images = data['images']
+            mean_val = np.mean(values)
+
+            # Create bar plot
+            x_pos = np.arange(len(images))
+            bars = ax.bar(x_pos, values, color='steelblue', alpha=0.7, edgecolor='black', linewidth=0.8)
+
+            # Add mean line
+            ax.axhline(y=mean_val, color='red', linestyle='--', linewidth=1.5, label=f'Mean: {mean_val:.3f}')
+
+            # Compact formatting
+            ax.set_xlabel('Sample', fontsize=8, fontweight='bold')
+            ax.set_ylabel(title, fontsize=8, fontweight='bold')
+            ax.set_title(f'{title}\n{subtitle}', fontsize=9, fontweight='bold', pad=4)
+            ax.set_xticks(x_pos)
+
+            # Use sample numbers instead of image names
+            sample_numbers = [str(i+1) for i in range(len(images))]
+            ax.set_xticklabels(sample_numbers, rotation=0, ha='center', fontsize=8)
+
+            ax.legend(loc='upper right', fontsize=7)
+            ax.grid(axis='y', alpha=0.3, linestyle=':', linewidth=0.5)
+
+            # Smaller value labels
+            for i, (bar, val) in enumerate(zip(bars, values)):
+                height = bar.get_height()
+                if height > 0:
+                    ax.text(bar.get_x() + bar.get_width()/2., height,
+                           f'{val:.2f}', ha='center', va='bottom', fontsize=6)
+
+            # Reduce tick label size
+            ax.tick_params(axis='both', labelsize=7)
+
+            # Calculate dynamic y-axis limits with 10% margins
+            if len(values) > 0 and max(values) > 0:
+                y_min = min(values)
+                y_max = max(values)
+                y_range = y_max - y_min
+
+                # Add 10% margin
+                if y_range > 0:
+                    y_min_adjusted = y_min - (y_range * 0.1)
+                    y_max_adjusted = y_max + (y_range * 0.1)
+                else:
+                    # If all values are the same
+                    y_min_adjusted = y_min - 0.1
+                    y_max_adjusted = y_max + 0.1
+
+                # Ensure non-negative for metrics that should be positive
+                if key in ['enrichment', 'jaccard', 'm1', 'm2']:
+                    y_min_adjusted = max(0, y_min_adjusted)
+
+                ax.set_ylim(y_min_adjusted, y_max_adjusted)
 
         canvas = FigureCanvasTkAgg(fig, master=self.figure_frame)
         canvas.draw()
