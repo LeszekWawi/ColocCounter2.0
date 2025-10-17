@@ -16,6 +16,16 @@ This application provides a sophisticated, three-level analysis pipeline for stu
 2. **Granule-Level Analysis** - Structure-based colocalization metrics
 3. **Cross-Structure Analysis** - Bidirectional recruitment and enrichment quantification
 
+### 🏗️ Refactored Architecture (v2.0.0)
+
+This version features a **refactored modular architecture** with improved organization:
+- ✅ Clean entry point (`main.py`)
+- ✅ Modular package structure (`src/` directory)
+- ✅ Separated constants and utilities
+- ✅ Better maintainability and testability
+- ✅ Professional Python project structure
+- ✅ Comprehensive documentation
+
 ### Key Features
 
 - ✨ **Dual-Channel Analysis** - Simultaneous GFP and mCherry channel processing
@@ -87,12 +97,38 @@ Pillow>=8.3.0
 
 All dependencies are automatically installed via `requirements.txt`.
 
+## 📁 Project Structure
+
+```
+ColocCounter2.0/
+├── main.py                    # 🚀 Main entry point - RUN THIS FILE
+├── ColocCounter2.0.py         # Core application logic
+├── requirements.txt           # Python dependencies
+├── .gitignore                # Git ignore rules
+├── README.md                 # This file
+├── src/                      # Modular source code
+│   ├── __init__.py
+│   ├── analysis/            # Analysis algorithms
+│   │   └── __init__.py
+│   ├── processing/          # Batch processing
+│   │   └── __init__.py
+│   ├── gui/                 # GUI components
+│   │   └── __init__.py
+│   └── utils/               # Utilities and constants
+│       ├── __init__.py
+│       └── constants.py     # Color schemes, config
+└── tests/                   # Unit tests (future)
+    └── __init__.py
+```
+
 ## ⚡ Quick Start
 
 ```bash
-# Run the application
-python export_problem.py
+# Run the application using the main entry point
+python main.py
 ```
+
+**Note:** Always use `main.py` to launch the application for best compatibility.
 
 ### Basic Workflow
 

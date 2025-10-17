@@ -2205,14 +2205,14 @@ class ColocalizationAnalyzer:
         }
     # ============================================================================
 # KROK 1: Nowe funkcje analizy kolokalizacji 
-# DODAJ te metody na KOŃCU klasy ColocalizationAnalyzer (po istniejących metodach)
+# ADD these methods at the END of ColocalizationAnalyzer class (after existing methods)
 # ============================================================================
 
     def calculate_global_pixel_colocalization(self, gfp_img: np.ndarray, mcherry_img: np.ndarray) -> Dict:
         """
-        POZIOM 1: Globalna analiza kolokalizacji pikseli dla całego obrazu
+        LEVEL 1: Global pixel colocalization analysis for the entire image
         """
-        # Progi dla całego obrazu - with validation
+        # Thresholds for entire image - with validation
         gfp_thresh = threshold_otsu(gfp_img) if gfp_img.max() > 0 else 0
         mcherry_thresh = threshold_otsu(mcherry_img) if mcherry_img.max() > 0 else 0
         
@@ -2227,7 +2227,7 @@ class ColocalizationAnalyzer:
         
         print(f"    Global thresholds - GFP: {gfp_thresh:.3f}, mCherry: {mcherry_thresh:.3f}")
         
-        # Piksele powyżej progów
+        # Pixels above thresholds
         gfp_positive = gfp_img > gfp_thresh
         mcherry_positive = mcherry_img > mcherry_thresh
         colocalized_pixels = gfp_positive & mcherry_positive
@@ -2301,21 +2301,21 @@ class ColocalizationAnalyzer:
 
     def calculate_structure_overlap(self, gfp_structures: np.ndarray, mcherry_structures: np.ndarray) -> Dict:
         """
-        POZIOM 3: Analiza nakładania się struktur - najważniejsza metoda!
+        LEVEL 3: Structure overlap analysis - most important method!
         """
-        # Maski wszystkich struktur (bez rozróżniania ID)
+        # Masks of all structures (without distinguishing IDs)
         gfp_struct_mask = gfp_structures > 0
         mcherry_struct_mask = mcherry_structures > 0
         overlap_mask = gfp_struct_mask & mcherry_struct_mask
         union_mask = gfp_struct_mask | mcherry_struct_mask
         
-        # Podstawowe liczby pikseli
+        # Basic pixel counts
         gfp_struct_pixels = np.sum(gfp_struct_mask)
         mcherry_struct_pixels = np.sum(mcherry_struct_mask)
         overlap_pixels = np.sum(overlap_mask)
         union_pixels = np.sum(union_mask)
         
-        # Jaccard Index - najważniejsza metryka!
+        # Jaccard Index - most important metric!
         jaccard_index = overlap_pixels / union_pixels if union_pixels > 0 else 0
         
         # Dice Coefficient (Sørensen-Dice)
@@ -2353,37 +2353,37 @@ class ColocalizationAnalyzer:
     def analyze_individual_structures(self, gfp_img: np.ndarray, mcherry_img: np.ndarray,
                                     gfp_structures: np.ndarray, mcherry_structures: np.ndarray) -> List[Dict]:
         """
-        POZIOM 3: Analiza każdej struktury osobno
+        LEVEL 3: Analysis of each structure individually
         """
         structure_analysis = []
         
         print(f"    Individual structure analysis:")
         
-        # Analizuj każdą strukturę GFP
-        gfp_structure_ids = np.unique(gfp_structures)[1:]  # Pomiń tło (0)
+        # Analyze each GFP structure
+        gfp_structure_ids = np.unique(gfp_structures)[1:]  # Skip background (0)
         for gfp_id in gfp_structure_ids:
             gfp_mask = gfp_structures == gfp_id
             
-            # Sprawdź overlap z strukturami mCherry
+            # Check overlap with mCherry structures
             overlapping_mcherry_values = mcherry_structures[gfp_mask]
             overlapping_mcherry_ids = np.unique(overlapping_mcherry_values)
-            overlapping_mcherry_ids = overlapping_mcherry_ids[overlapping_mcherry_ids > 0]  # Pomiń tło
+            overlapping_mcherry_ids = overlapping_mcherry_ids[overlapping_mcherry_ids > 0]  # Skip background
             
-            # Intensywności w tej strukturze
+            # Intensities in this structure
             gfp_intensity = np.sum(gfp_img[gfp_mask])
             mcherry_intensity = np.sum(mcherry_img[gfp_mask])
             area = np.sum(gfp_mask)
             
-            # Kolokalizacja na poziomie pikseli WEWNĄTRZ tej struktury
+            # Pixel-level colocalization INSIDE this structure
             if area > 0:
                 gfp_in_struct = gfp_img[gfp_mask]
                 mcherry_in_struct = mcherry_img[gfp_mask]
                 
-                # Progi dla tej konkretnej struktury
+                # Thresholds for this specific structure
                 gfp_thresh = threshold_otsu(gfp_in_struct) if len(np.unique(gfp_in_struct)) > 1 else gfp_in_struct.mean()
                 mcherry_thresh = threshold_otsu(mcherry_in_struct) if len(np.unique(mcherry_in_struct)) > 1 else mcherry_in_struct.mean()
                 
-                # Piksele kolokalizowane w tej strukturze
+                # Colocalized pixels in this structure
                 gfp_high_in_struct = gfp_in_struct > gfp_thresh
                 mcherry_high_in_struct = mcherry_in_struct > mcherry_thresh
                 coloc_pixels_in_struct = np.sum(gfp_high_in_struct & mcherry_high_in_struct)
@@ -2393,8 +2393,8 @@ class ColocalizationAnalyzer:
                 colocalization_fraction = 0
                 coloc_pixels_in_struct = 0
             
-            # Określ czy struktura jest skolokalizowana
-            is_colocalized = len(overlapping_mcherry_ids) > 0 and colocalization_fraction > 0.1  # >10% pikseli kolokalizowanych
+            # Determine if structure is colocalized
+            is_colocalized = len(overlapping_mcherry_ids) > 0 and colocalization_fraction > 0.1  # >10% colocalized pixels
             
             structure_data = {
                 'structure_id': int(gfp_id),
@@ -2413,22 +2413,22 @@ class ColocalizationAnalyzer:
             
             print(f"      GFP #{gfp_id}: area={area}, overlap_with={list(overlapping_mcherry_ids)}, coloc_frac={colocalization_fraction:.2f}")
         
-        # Analizuj każdą strukturę mCherry
+        # Analyze each mCherry structure
         mcherry_structure_ids = np.unique(mcherry_structures)[1:]
         for mcherry_id in mcherry_structure_ids:
             mcherry_mask = mcherry_structures == mcherry_id
             
-            # Sprawdź overlap z strukturami GFP
+            # Check overlap with GFP structures
             overlapping_gfp_values = gfp_structures[mcherry_mask]
             overlapping_gfp_ids = np.unique(overlapping_gfp_values)
             overlapping_gfp_ids = overlapping_gfp_ids[overlapping_gfp_ids > 0]
             
-            # Intensywności w tej strukturze
+            # Intensities in this structure
             gfp_intensity = np.sum(gfp_img[mcherry_mask])
             mcherry_intensity = np.sum(mcherry_img[mcherry_mask])
             area = np.sum(mcherry_mask)
             
-            # Kolokalizacja na poziomie pikseli WEWNĄTRZ tej struktury
+            # Pixel-level colocalization INSIDE this structure
             if area > 0:
                 gfp_in_struct = gfp_img[mcherry_mask]
                 mcherry_in_struct = mcherry_img[mcherry_mask]
@@ -2483,13 +2483,13 @@ class ColocalizationAnalyzer:
     def interpret_colocalization_results(self, global_results: Dict, structure_overlap: Dict, 
                                     bidirectional_ccs: Dict) -> Dict:
         """
-        Biologiczna interpretacja wyników
+        Biological interpretation of results
         """
         jaccard = structure_overlap['jaccard_index']
         ccs_asymmetry = bidirectional_ccs['recruitment_asymmetry']
         manders_avg = (global_results['manders_m1'] + global_results['manders_m2']) / 2
         
-        # Określ siłę kolokalizacji
+        # Determine colocalization strength
         if jaccard > 0.7:
             strength = 'strong'
         elif jaccard > 0.4:
@@ -2499,7 +2499,7 @@ class ColocalizationAnalyzer:
         else:
             strength = 'minimal'
         
-        # Określ pattern biologiczny
+        # Determine biological pattern
         if jaccard > 0.5 and ccs_asymmetry < 0.2:
             pattern = 'co-assembly'
             description = "Proteins co-assemble into shared structures"
@@ -2524,28 +2524,28 @@ class ColocalizationAnalyzer:
             'dominant_direction': bidirectional_ccs['dominant_direction']
         }
     # ============================================================================
-    # KROK 2: Comprehensive Analysis Wrapper
-    # DODAJ tę metodę PO funkcjach z Kroku 1 (w klasie ColocalizationAnalyzer)
+    # STEP 2: Comprehensive Analysis Wrapper
+    # ADD this method AFTER functions from Step 1 (in the ColocalizationAnalyzer class)
     # ============================================================================
     
     def comprehensive_colocalization_analysis_fixed(self, two_channel_img: np.ndarray,
                                              gfp_granules: np.ndarray, mcherry_granules: np.ndarray,
                                              detection_mode: str = "gfp") -> Dict:
         """
-        Kompletna analiza kolokalizacji na wszystkich 3 poziomach
-        
+        Complete colocalization analysis at all 3 levels
+
         Args:
-            two_channel_img: Obraz dwukanałowy [H, W, 2]
-            gfp_granules: Wykryte struktury GFP
-            mcherry_granules: Wykryte struktury mCherry
-            detection_mode: Tryb detekcji ("gfp" lub "cherry")
-            
+            two_channel_img: Two-channel image [H, W, 2]
+            gfp_granules: Detected GFP structures
+            mcherry_granules: Detected mCherry structures
+            detection_mode: Detection mode ("gfp" or "cherry")
+
         Returns:
-            Kompletny słownik z wynikami analizy na wszystkich poziomach
+            Complete dictionary with analysis results at all levels
         """
         print(f"\n=== COMPREHENSIVE COLOCALIZATION ANALYSIS ({detection_mode.upper()} mode) ===")
         
-        # Wyciągnij kanały
+        # Extract channels
         gfp_img = two_channel_img[:, :, 0]
         mcherry_img = two_channel_img[:, :, 1]
         
@@ -2553,25 +2553,25 @@ class ColocalizationAnalyzer:
         print(f"Structures: GFP={len(np.unique(gfp_granules))-1} granules, mCherry={len(np.unique(mcherry_granules))-1} granules")
         
         # ============================================================================
-        # POZIOM 1: GLOBAL ANALYSIS
+        # LEVEL 1: GLOBAL ANALYSIS
         # ============================================================================
         print("\n--- LEVEL 1: GLOBAL ANALYSIS ---")
         
-        # ICQ globalny (cały obraz)
+        # Global ICQ (entire image)
         global_icq = self.calculate_icq(gfp_img, mcherry_img, mask=None)
         print(f"  Global ICQ: {global_icq:.4f}")
         
-        # Globalna kolokalizacja pikseli
+        # Global pixel colocalization
         global_pixel_coloc = self.calculate_global_pixel_colocalization(gfp_img, mcherry_img)
         print(f"  Manders M1: {global_pixel_coloc['manders_m1']:.3f}, M2: {global_pixel_coloc['manders_m2']:.3f}")
         print(f"  Overlap coefficient: {global_pixel_coloc['overlap_coefficient']:.3f}")
         
         # ============================================================================
-        # POZIOM 2: STRUCTURE-BASED ANALYSIS  
+        # LEVEL 2: STRUCTURE-BASED ANALYSIS  
         # ============================================================================
         print("\n--- LEVEL 2: STRUCTURE-BASED ANALYSIS ---")
         
-        # ICQ w strukturach
+        # ICQ in structures
         all_structures_mask = (gfp_granules > 0) | (mcherry_granules > 0)
         structure_icq = self.calculate_icq(gfp_img, mcherry_img, all_structures_mask) if np.any(all_structures_mask) else 0
         print(f"  ICQ in structures: {structure_icq:.4f}")
@@ -2579,16 +2579,16 @@ class ColocalizationAnalyzer:
         # Bidirectional CCS (recruitment analysis)
         bidirectional_ccs = self.calculate_bidirectional_ccs(gfp_img, mcherry_img, gfp_granules, mcherry_granules)
         
-        # ICQ enhancement (czy kolokalizacja jest wzbogacona w strukturach)
+        # ICQ enhancement (whether colocalization is enriched in structures)
         icq_enhancement = structure_icq - global_icq
         print(f"  ICQ enhancement in structures: {icq_enhancement:+.4f}")
         
         # ============================================================================
-        # POZIOM 3: CROSS-STRUCTURE ANALYSIS (najważniejszy!)
+        # LEVEL 3: CROSS-STRUCTURE ANALYSIS (most important!)
         # ============================================================================
         print("\n--- LEVEL 3: CROSS-STRUCTURE ANALYSIS ---")
         
-        # Structure overlap - kluczowe metryki
+        # Structure overlap - key metrics
         structure_overlap = self.calculate_structure_overlap(gfp_granules, mcherry_granules)
 
 # NEW: Calculate comprehensive granule metrics
@@ -2613,7 +2613,7 @@ class ColocalizationAnalyzer:
         # ============================================================================
         print("\n--- BIOLOGICAL INTERPRETATION ---")
         
-        # Interpretacja wyników
+        # Results interpretation
         interpretation = self.interpret_colocalization_results(global_pixel_coloc, structure_overlap, bidirectional_ccs)
         print(f"  Colocalization strength: {interpretation['colocalization_strength']}")
         print(f"  Biological pattern: {interpretation['biological_pattern']}")
@@ -2627,7 +2627,7 @@ class ColocalizationAnalyzer:
         legacy_ccs = legacy_ccs_result[0] if legacy_ccs_result else {}
      
         results = {
-            # Metadane analizy
+            # Analysis metadata
             'analysis_metadata': {
                 'detection_mode': detection_mode,
                 'timestamp': datetime.now().isoformat(),
@@ -2637,7 +2637,7 @@ class ColocalizationAnalyzer:
                 'mcherry_granules_count': len(np.unique(mcherry_granules)) - 1
             },
             
-            # POZIOM 1: Global analysis
+            # LEVEL 1: Global analysis
             'global_analysis': {
                 'icq_global': global_icq,
                 'pixel_colocalization': global_pixel_coloc,
@@ -2645,7 +2645,7 @@ class ColocalizationAnalyzer:
                 'total_mcherry_signal': float(np.sum(mcherry_img))
             },
             
-            # POZIOM 2: Structure-based analysis
+            # LEVEL 2: Structure-based analysis
             'structure_analysis': {
                 'icq_in_structures': structure_icq,
                 'icq_enhancement': icq_enhancement,
@@ -2653,7 +2653,7 @@ class ColocalizationAnalyzer:
                 'structures_fraction_of_image': float(np.sum(all_structures_mask) / all_structures_mask.size)
             },
             
-            # POZIOM 3: Cross-structure analysis (najważniejszy!)
+            # LEVEL 3: Cross-structure analysis (most important!)
             'cross_structure_analysis': {
     'structure_overlap': structure_overlap,
     'comprehensive_granule_metrics': comprehensive_granule_metrics,  # ADD THIS
@@ -2663,7 +2663,7 @@ class ColocalizationAnalyzer:
     'total_structures_count': len(individual_structures)
 },
             
-            # Biologiczna interpretacja
+            # Biological interpretation
             'biological_interpretation': interpretation,
             
             'visualization_data': {
@@ -2676,22 +2676,22 @@ class ColocalizationAnalyzer:
     'venn_data': venn_data
 },
             
-            # BACKWARD COMPATIBILITY - zachowuje stary format dla GUI
+            # BACKWARD COMPATIBILITY - preserves old format for GUI
             'legacy_compatibility': {
                 'gfp_total': legacy_ccs.get('gfp_total', 0),
                 'mcherry_total': legacy_ccs.get('mcherry_total', 0),
                 'num_granules': legacy_ccs.get('num_granules', 0),
-                'num_colocalized': structure_overlap['overlap_pixels'],  # Nowa definicja: piksele overlap
+                'num_colocalized': structure_overlap['overlap_pixels'],  # New definition: overlap pixels
                 'ccs_score': legacy_ccs.get('ccs_score', bidirectional_ccs['ccs_gfp_to_mcherry'] if detection_mode == "gfp" else bidirectional_ccs['ccs_mcherry_to_gfp']),
                 'translocation_efficiency': legacy_ccs.get('translocation_efficiency', bidirectional_ccs['ccs_gfp_to_mcherry'] if detection_mode == "gfp" else bidirectional_ccs['ccs_mcherry_to_gfp']),
-                'icq_score': structure_icq,  # ICQ w strukturach (bardziej odpowiednie niż globalny)
+                'icq_score': structure_icq,  # ICQ in structures (more appropriate than global)
                 'granule_data': legacy_ccs.get('granule_data', []),
                 'detection_mode': detection_mode
             },
             
-            # Podsumowanie - najważniejsze wyniki
+            # Summary - most important results
             'summary': {
-                'jaccard_index': structure_overlap['jaccard_index'],  # NAJWAŻNIEJSZA METRYKA
+                'jaccard_index': structure_overlap['jaccard_index'],  # MOST IMPORTANT METRIC
                 'colocalization_strength': interpretation['colocalization_strength'],
                 'biological_pattern': interpretation['biological_pattern'],
                 'dominant_recruitment_direction': bidirectional_ccs['dominant_direction'],
@@ -2711,7 +2711,7 @@ class ColocalizationAnalyzer:
         return results
     
     def _generate_analysis_recommendation(self, jaccard_index: float, biological_pattern: str) -> str:
-        """Generuj rekomendację analizy na podstawie wyników"""
+        """Generate analysis recommendation based on results"""
         if jaccard_index > 0.7:
             return "Strong colocalization detected. Consider functional interaction analysis."
         elif jaccard_index > 0.4:
@@ -2722,7 +2722,7 @@ class ColocalizationAnalyzer:
             return "Minimal colocalization. Proteins likely function independently."
 
 # ============================================================================
-# DODAJ TE KLASY PRZED KLASĄ BatchProcessor
+# ADD THESE CLASSES BEFORE THE BatchProcessor CLASS
 # ============================================================================
 
 class ProcessingResult:
@@ -2747,7 +2747,7 @@ class ThreadSafeResultCollector:
     # Removed unused methods: add_result(), get_summary() - never called
 
 # ============================================================================
-# TERAZ MOŻESZ ZASTĄPIĆ METODY W KLASIE BatchProcessor
+# NOW YOU CAN REPLACE METHODS IN THE BatchProcessor CLASS
 # ============================================================================
 # ============================================================================
 # Batch Processing Manager - FIXED
@@ -4329,19 +4329,15 @@ The analysis calculates:
             
             try:
                 # Create the comprehensive summary plot
-                from matplotlib.figure import Figure
-                from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-                
-                summary_fig = VisualizationManager.plot_comprehensive_summary(comprehensive_data)
-                
-                # Embed the plot in the GUI
-                canvas_plot = FigureCanvasTkAgg(summary_fig, master=plot_frame)
-                canvas_plot.draw()
-                canvas_plot.get_tk_widget().pack(fill='both', expand=True, padx=5, pady=5)
-                
+                # NOTE: VisualizationManager was removed - visualization temporarily disabled
+                error_plot_label = ttk.Label(plot_frame,
+                                          text="Comprehensive summary plot\n(VisualizationManager removed)",
+                                          font=('TkDefaultFont', 10), foreground='gray', justify='center')
+                error_plot_label.pack(expand=True, pady=20)
+
             except Exception as e:
                 print(f"Error creating comprehensive summary plot: {e}")
-                error_plot_label = ttk.Label(plot_frame, 
+                error_plot_label = ttk.Label(plot_frame,
                                           text=f"Error creating comprehensive plots:\n{str(e)}",
                                           font=('TkDefaultFont', 10), foreground='red', justify='center')
                 error_plot_label.pack(expand=True, pady=20)
@@ -4491,11 +4487,11 @@ The analysis calculates:
                 # Color code by enrichment level
                 if np.any(gfp_mask):
                     if mcherry_enrichment > 2.0:
-                        rgb[gfp_mask] = [1.0, 1.0, 0.0]  # ŻÓŁTY dla silnego enrichment
+                        rgb[gfp_mask] = [1.0, 1.0, 0.0]  # YELLOW for strong enrichment
                     elif mcherry_enrichment > 1.2:
-                        rgb[gfp_mask] = [1.0, 0.8, 0.0]  # POMARAŃCZOWY
+                        rgb[gfp_mask] = [1.0, 0.8, 0.0]  # ORANGE
                     elif mcherry_enrichment < 0.8:
-                        rgb[gfp_mask] = [0.8, 0.0, 0.8]  # FIOLETOWY dla exclusion
+                        rgb[gfp_mask] = [0.8, 0.0, 0.8]  # PURPLE for exclusion
                     else:
                         rgb[gfp_mask] = [0.0, 0.8, 0.0] 
                     
@@ -4804,7 +4800,7 @@ The analysis calculates:
                 if 'comprehensive_granule_metrics' in cross_analysis:
                     granule_metrics = cross_analysis['comprehensive_granule_metrics']
                     
-                    # Najpierw spróbuj pobrać Jaccard z granule_metrics (może być bardziej dokładny)
+                    # First try to get Jaccard from granule_metrics (may be more accurate)
                     if 'jaccard' in granule_metrics:
                         metrics['jaccard_index'] = float(granule_metrics['jaccard'])
                         print(f"    ✅ Jaccard from granule_metrics: {metrics['jaccard_index']:.3f}")
@@ -4815,7 +4811,7 @@ The analysis calculates:
                     granule_metrics = cross_analysis['comprehensive_granule_metrics']
                     print(f"    🔍 Found granule_metrics: {list(granule_metrics.keys())}")
                     
-                    # ✅ RECRUITMENT - już działa
+                    # ✅ RECRUITMENT - already working
                     if 'recruitment_icq_to_gfp' in granule_metrics:
                         metrics['recruit_to_gfp'] = float(granule_metrics['recruitment_icq_to_gfp'])
                         print(f"    ✅ Recruitment to GFP: {metrics['recruit_to_gfp']:.3f}")
@@ -4824,7 +4820,7 @@ The analysis calculates:
                         metrics['recruit_to_cherry'] = float(granule_metrics['recruitment_icq_to_mcherry'])
                         print(f"    ✅ Recruitment to mCherry: {metrics['recruit_to_cherry']:.3f}")
                     
-                    # ✅ ENRICHMENT - BEZPOŚREDNIO Z GRANULE_METRICS (bez live calculation!)
+                    # ✅ ENRICHMENT - DIRECTLY FROM GRANULE_METRICS (no live calculation!)
                     if 'mcherry_enrichment_in_gfp' in granule_metrics:
                         metrics['enrichment_mcherry'] = float(granule_metrics['mcherry_enrichment_in_gfp'])
                         print(f"    ✅ mCherry enrichment in GFP: {metrics['enrichment_mcherry']:.3f}")
@@ -4977,7 +4973,7 @@ The analysis calculates:
                     
                     metrics = self.extract_comprehensive_metrics_EXACT_WORKING_SOURCES(result)
                     
-                    # 🎯 NOWE: Używaj osobnych enrichment wartości zamiast ratio
+                    # 🎯 NEW: Use separate enrichment values instead of ratio
                     values = (
                         result.experiment_id,
                         f"{metrics['ccs_mean']:.3f}",
@@ -4999,7 +4995,7 @@ The analysis calculates:
                 
                 # Add batch averages if multiple results
                 if len(self.results) > 1:
-                    # 🚨 POPRAWKA: Użyj poprawnej nazwy metody
+                    # 🚨 FIX: Use correct method name
                     all_metrics = [self.extract_comprehensive_metrics_EXACT_WORKING_SOURCES(result) 
                                 for result in self.results]
                     
@@ -5470,7 +5466,7 @@ The analysis calculates:
         top_percentile = 99  # Top 1%
         icq_threshold = np.percentile(product[cell_mask], top_percentile)
     
-    # Maska dla najwyższych wartości ICQ
+    # Mask for highest ICQ values
         positive_icq_mask = (product > icq_threshold) & cell_mask
         negative_icq_mask = ( product < 0 ) & cell_mask
         zero_icq_mask = (product == 0) & cell_mask
@@ -6274,7 +6270,7 @@ The analysis calculates:
         gfp_overlap_frac = structure_overlap['gfp_overlap_fraction']
         mcherry_overlap_frac = structure_overlap['mcherry_overlap_fraction']
         
-        # Dodaj walidację i interpretację jakości
+        # Add validation and quality interpretation
         overlap_quality = "Good" if overlap_pixels > 50 else "Low"
         if gfp_granule_count == 0 or mcherry_granule_count == 0:
             overlap_interpretation = "No overlap possible - missing channel"
@@ -6340,22 +6336,11 @@ The analysis calculates:
         
         if filename:
             try:
-                # Create comprehensive report figure
-                fig = VisualizationManager.create_comprehensive_report_figure(
-                    result.comprehensive_data, result.experiment_id)
-                
-                # Save with high quality
-                if filename.lower().endswith('.pdf'):
-                    fig.savefig(filename, format='pdf', dpi=300, bbox_inches='tight')
-                elif filename.lower().endswith('.svg'):
-                    fig.savefig(filename, format='svg', dpi=300, bbox_inches='tight')
-                else:
-                    fig.savefig(filename, format='png', dpi=300, bbox_inches='tight')
-                
-                plt.close(fig)
-                
-                self.log(f"Comprehensive report exported to {filename}")
-                messagebox.showinfo("Success", f"Report exported successfully to:\n{filename}")
+                # NOTE: VisualizationManager was removed - export functionality disabled
+                self.log("Comprehensive report export disabled (VisualizationManager removed)")
+                messagebox.showwarning("Feature Disabled",
+                    "Comprehensive report export is temporarily disabled.\n"
+                    "VisualizationManager was removed.")
                 
             except Exception as e:
                 self.log(f"Error exporting report: {str(e)}")
@@ -6384,12 +6369,15 @@ The analysis calculates:
         # Create Venn diagram
         comprehensive_data = self.current_single_result.comprehensive_data
         venn_data = comprehensive_data['cross_structure_analysis']['venn_data']
-        
+
         fig = Figure(figsize=(8, 6))
         ax = fig.add_subplot(1, 1, 1)
-       
-        VisualizationManager.plot_venn_diagram(venn_data, ax)
-        
+
+        # NOTE: VisualizationManager was removed - Venn diagram disabled
+        ax.text(0.5, 0.5, 'Venn Diagram\n(VisualizationManager removed)',
+                ha='center', va='center', fontsize=12, color='gray')
+        ax.axis('off')
+
         # Embed in frame
         canvas = FigureCanvasTkAgg(fig, master=self.single_preview_frame)
         canvas.draw()
@@ -8153,7 +8141,7 @@ The analysis calculates:
            except:
                pass
 
-   # Ostatnia część klasy ColocalizationGUI:
+   # Last part of the ColocalizationGUI class:
 
     def load_images_for_result(self, experiment_id):
        """Load original images for a given experiment with caching - returns two-channel image if available"""
@@ -8740,7 +8728,7 @@ The analysis calculates:
         try:
             print("\n🎯 Single image ICQ colocalization")
             
-            # Sprawdź czy mamy wynik z analizy
+            # Check if we have analysis result
             if not hasattr(self, 'current_single_result') or not self.current_single_result:
                 for widget in self.single_preview_frame.winfo_children():
                     widget.destroy()
@@ -8761,7 +8749,7 @@ The analysis calculates:
                 error_label.pack(expand=True)
                 return
             
-            # *** KLUCZOWE: Użyj załadowanego obrazu zamiast load_images_for_result ***
+            # *** CRITICAL: Use loaded image instead of load_images_for_result ***
             if not hasattr(self, 'current_two_channel_img') or self.current_two_channel_img is None:
                 for widget in self.single_preview_frame.winfo_children():
                     widget.destroy()
@@ -8771,18 +8759,18 @@ The analysis calculates:
                 error_label.pack(expand=True)
                 return
             
-            # Użyj obecnego obrazu
+            # Use current image
             two_channel_img = self.current_two_channel_img
             gfp_img = two_channel_img[:, :, 0].astype(np.float64)
             mcherry_img = two_channel_img[:, :, 1].astype(np.float64)
             
             print(f"Using current image: GFP range [{gfp_img.min():.3f}, {gfp_img.max():.3f}], mCherry range [{mcherry_img.min():.3f}, {mcherry_img.max():.3f}]")
             
-            # Wyczyść display
+            # Clear display
             for widget in self.single_preview_frame.winfo_children():
                 widget.destroy()
             
-            # Wywołaj funkcję ICQ (podobnie jak w batch mode, ale dla single_preview_frame)
+            # Call ICQ function (similar to batch mode, but for single_preview_frame)
             self._show_icq_for_single_image(result, gfp_img, mcherry_img)
             
         except Exception as e:
@@ -8803,7 +8791,7 @@ The analysis calculates:
         # Create cell mask (same as batch mode)
         # 
         
-        # Percentyle tylko pikseli > 0 (wykluczając czarne tło)
+        # Percentile only for pixels > 0 (excluding black background)
         if gfp_img.max() > 0:
             gfp_nonzero = gfp_img[gfp_img > 0]
             if len(gfp_nonzero) > 0:
@@ -9367,30 +9355,39 @@ The analysis calculates:
                 widget.destroy()
             
             # Create figure with proper professional layout
-            fig, gs = VisualizationManager.create_figure_with_proper_layout(
-                figsize=(12, 8), nrows=2, ncols=2)
-            
+            # NOTE: VisualizationManager was removed - using basic matplotlib layout
+            fig = plt.figure(figsize=(12, 8))
+            gs = fig.add_gridspec(nrows=2, ncols=2, hspace=0.3, wspace=0.3)
+
             # Subplot 1: Expression Matrix
             ax1 = fig.add_subplot(gs[0, 0])
             try:
-                VisualizationManager.plot_expression_matrix(
-                    result.expression_matrix, ax1, "Expression Matrix")
+                # NOTE: VisualizationManager.plot_expression_matrix removed
+                ax1.text(0.5, 0.5, 'Expression Matrix\n(VisualizationManager removed)',
+                        ha='center', va='center', transform=ax1.transAxes,
+                        fontsize=11, color='gray')
+                ax1.set_title("Expression Matrix", fontsize=12, fontweight='bold', pad=15)
+                ax1.axis('off')
             except Exception as e:
                 print(f"Error plotting expression matrix: {e}")
-                ax1.text(0.5, 0.5, 'Expression Matrix\n(Error in plotting)', 
+                ax1.text(0.5, 0.5, 'Expression Matrix\n(Error in plotting)',
                         ha='center', va='center', transform=ax1.transAxes,
                         fontsize=11, color='red',
                         bbox=dict(boxstyle="round,pad=0.3", facecolor='mistyrose', alpha=0.8))
                 ax1.set_title("Expression Matrix", fontsize=12, fontweight='bold', pad=15)
-            
+
             # Subplot 2: Statistics Summary
             ax2 = fig.add_subplot(gs[0, 1])
             try:
-                VisualizationManager.plot_statistics_summary(
-                    result.statistics, ax2, "Co-localization Metrics")
+                # NOTE: VisualizationManager.plot_statistics_summary removed
+                ax2.text(0.5, 0.5, 'Statistics Summary\n(VisualizationManager removed)',
+                        ha='center', va='center', transform=ax2.transAxes,
+                        fontsize=11, color='gray')
+                ax2.set_title("Co-localization Metrics", fontsize=12, fontweight='bold', pad=15)
+                ax2.axis('off')
             except Exception as e:
                 print(f"Error plotting statistics: {e}")
-                ax2.text(0.5, 0.5, 'Statistics Summary\n(Error in plotting)', 
+                ax2.text(0.5, 0.5, 'Statistics Summary\n(Error in plotting)',
                         ha='center', va='center', transform=ax2.transAxes,
                         fontsize=11, color='red',
                         bbox=dict(boxstyle="round,pad=0.3", facecolor='mistyrose', alpha=0.8))
